@@ -1,4 +1,11 @@
--- Tracking rewards and fees
+-- Tracking rewards and fees is tricky because RewardsPaid events do not have
+-- an identifier that relates back to a task and model. To determine which model the rewards are
+-- related to from solutions that are claimed we need to look to the transaction's event log and find the SolutionClaimed event
+-- that comes before a RewardsPaid event. For rewards from nay-vote contestations we need to look for
+-- RewardsPaid event that comes before a ContestationVoteFinish event. Furthermore, SolutionClaimed
+-- events always have a RewardsPaid event after them in the event log, but ContestationVoteFinish may or may not
+-- have RewardsPaid event before them in the event log. We can find a model id through a task through either ContestationVoteFinish
+-- or SolutionClaimed event for every RewardsPaid event.
 WITH all_events AS (
   -- Combine RewardsPaid, SolutionClaimed, and ContestationVoteFinish events
   SELECT
