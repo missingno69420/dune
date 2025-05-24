@@ -1,9 +1,9 @@
--- https://dune.com/queries/5179786
 -- Analyze validator profitability from task fees, validator rewards, and fees within a lookback period
 -- Include task and solution transaction IDs, task fee, validator rewards, validator fees, net profit, task metadata, and model names
 -- Restrict to tasks with SolutionClaimed events for relevant profitability analysis
 -- Convert token values to decimal AIUS (wei / 10^18) in output
--- Order by evt_block_number, evt_tx_index, evt_index to reflect on-chain submission order
+-- Order by evt_block_number ASC, evt_tx_index DESC, evt_index DESC to reflect chronological submission order
+-- Add global_index for sequential task order, with most recent task having highest index
 -- Use query_5179596 for RewardsPaid and FeesPaid with task_id assignments
 -- Use INNER JOIN for solutions to ensure tasks have solutions, LEFT JOIN for payouts to allow missing payouts
 -- Remove time filters in solutions/payouts as joins ensure post-task events
@@ -27,7 +27,6 @@ payouts AS (
     SUM(CASE WHEN p.event_type = 'RewardsPaid' THEN p.validator_reward ELSE 0 END) AS validator_rewards, -- Sum validator rewards in raw AIUS wei
     SUM(CASE WHEN p.event_type = 'FeesPaid' THEN p.validator_fee ELSE 0 END) AS validator_fees -- Sum validator fees in raw AIUS wei
   FROM query_5179596 p
-  -- LEFT JOIN tasks t ON p.task_id = t.task_id -- Include payouts for tasks in lookback, allowing missing payouts
   WHERE p.task_id IS NOT NULL -- Ensure non-null task_id
   GROUP BY p.task_id, p.tx_hash
 ),
@@ -51,17 +50,35 @@ task_summary AS (
   FROM tasks t
   JOIN payouts p ON t.task_id = p.task_id -- Restrict to tasks even with payouts
   LEFT JOIN query_5169304 m ON t.model_id = m.model_id -- Include model names, allowing NULL if no match
+),
+indexed_tasks AS (
+  -- Add global index
+  SELECT
+    task_id,
+    task_tx_hash,
+    payout_tx_hash,
+    task_block_number,
+    evt_tx_index,
+    evt_index,
+    COALESCE(model_name, to_hex(model_id), 'No Task') AS model,
+    -1 * CAST(CAST(task_fee AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS task_fee_aius, -- Task fee in decimal AIUS
+    CAST(CAST(validator_rewards AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS validator_rewards_aius, -- Validator rewards in decimal AIUS
+    CAST(CAST(validator_fees AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS validator_fees_aius, -- Validator fees in decimal AIUS
+    CAST(CAST(profit_aius_tokens AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS profit_aius_tokens, -- Net profit in decimal AIUS
+    ROW_NUMBER() OVER (ORDER BY task_block_number ASC, evt_tx_index DESC, evt_index DESC) AS global_index -- Global index with most recent task having highest index
+  FROM task_summary
 )
--- Output results with transaction IDs, decimal AIUS tokens, and model names, ordered by on-chain submission order
+-- Output results with transaction IDs, decimal AIUS tokens, model names, and global index, ordered by chronological submission order
 SELECT
   task_id,
   task_tx_hash, -- Transaction ID for TaskSubmitted
   payout_tx_hash, -- Transaction ID for SolutionClaimed or ContestationVoteFinish
   task_block_number,
-  COALESCE(model_name, to_hex(model_id), 'No Task') AS model, -- Model name from query_5169304, hex model_id, or 'No Task'
-  CAST(CAST(task_fee AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS task_fee_aius, -- Task fee in decimal AIUS
-  CAST(CAST(validator_rewards AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS validator_rewards_aius, -- Validator rewards in decimal AIUS
-  CAST(CAST(validator_fees AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS validator_fees_aius, -- Validator fees in decimal AIUS
-  CAST(CAST(profit_aius_tokens AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS profit_aius_tokens -- Net profit in decimal AIUS
-FROM task_summary
-ORDER BY task_block_number, evt_tx_index, evt_index -- Order by on-chain submission sequence
+  model,
+  task_fee_aius,
+  validator_rewards_aius,
+  validator_fees_aius,
+  profit_aius_tokens,
+  global_index -- Global order index
+FROM indexed_tasks
+ORDER BY task_block_number ASC, evt_tx_index DESC, evt_index DESC -- Order by chronological submission sequence
