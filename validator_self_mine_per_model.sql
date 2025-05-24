@@ -9,6 +9,7 @@ WITH tasks AS (
     model AS model_id -- Model ID for joining with query_5169304
   FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
   WHERE evt_block_time >= NOW() - INTERVAL '{{lookback_period_minutes}}' MINUTE -- Lookback period (default 1440 minutes)
+    AND model = from_hex(replace('{{model_id}}', '0x', '')) -- Filter by model
 ),
 payouts AS (
   SELECT
@@ -38,7 +39,7 @@ task_summary AS (
     m.model_name, -- Model name from query_5169304
     t.model_id
   FROM tasks t
-  JOIN payouts p ON t.task_id = p.task_id -- Restrict to tasks even with payouts
+  JOIN payouts p ON t.task_id = p.task_id -- Restrict to tasks with payouts
   LEFT JOIN query_5169304 m ON t.model_id = m.model_id -- Include model names, allowing NULL if no match
 ),
 indexed_tasks AS (
@@ -55,10 +56,10 @@ indexed_tasks AS (
     CAST(CAST(validator_rewards AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS validator_rewards_aius, -- Validator rewards in decimal AIUS
     CAST(CAST(validator_fees AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS validator_fees_aius, -- Validator fees in decimal AIUS
     CAST(CAST(profit_aius_tokens AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS profit_aius_tokens, -- Net profit in decimal AIUS
-    ROW_NUMBER() OVER (ORDER BY task_block_number ASC, evt_tx_index DESC, evt_index DESC) AS global_index -- Global index with most recent task having highest index
+    ROW_NUMBER() OVER (ORDER BY task_block_number ASC, evt_tx_index DESC, evt_index DESC) AS global_index -- Global index across all tasks
   FROM task_summary
 )
--- Output results with transaction IDs, decimal AIUS tokens, model names, and global index, ordered by chronological submission order
+-- Output results with transaction IDs, decimal AIUS tokens, model names, and global index
 SELECT
   task_id,
   task_tx_hash, -- Transaction ID for TaskSubmitted
@@ -71,4 +72,4 @@ SELECT
   profit_aius_tokens,
   global_index -- Global order index
 FROM indexed_tasks
-ORDER BY task_block_number ASC, evt_tx_index DESC, evt_index DESC -- Order by chronological submission sequence
+ORDER BY task_block_number, evt_tx_index, evt_index -- Order by on-chain submission sequence
