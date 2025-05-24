@@ -195,5 +195,4 @@ SELECT
   validator_fee,
   task_id
 FROM events_with_task_id
-WHERE events_with_task_id.event_type IN ('FeesPaid', 'RewardsPaid')
 ORDER BY block_time, tx_hash, index
