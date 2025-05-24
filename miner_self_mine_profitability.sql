@@ -1,3 +1,4 @@
+-- https://dune.com/queries/5179786
 -- Analyze validator profitability from task fees, validator rewards, and fees within a lookback period
 -- Include task and solution transaction IDs, task fee, validator rewards, validator fees, net profit, task metadata, and model names
 -- Restrict to tasks with SolutionClaimed events for relevant profitability analysis

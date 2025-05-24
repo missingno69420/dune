@@ -1,3 +1,4 @@
+-- https://dune.com/queries/5176093/8520221
 -- Use query_5179596 for RewardsPaid and FeesPaid events with pre-assigned task IDs
 WITH rewards_fees_with_tasks AS (
   SELECT

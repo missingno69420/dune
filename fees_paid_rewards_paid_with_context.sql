@@ -1,3 +1,4 @@
+-- https://dune.com/queries/5179596
 -- Combine all events (RewardsPaid, FeesPaid, SolutionClaimed, ContestationVoteFinish) into a single CTE
 -- Include required columns, keeping token values in raw wei and calculating treasury_total_fee
 WITH all_events AS (
