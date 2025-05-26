@@ -77,7 +77,8 @@ ranked AS (
   LEFT JOIN running_sums rs ON rs.model = tm.model AND rs.time <= tm.ts_time
 )
 SELECT
-  tm.ts_time AS time,
+  tm.ts_time AS datetime,
+  format_datetime(tm.ts_time, 'HH:mm:ss') AS time,
   COALESCE(m.model_name, TO_HEX(tm.model)) AS model,
   COALESCE(r.unsolved_tasks, 0) AS unsolved_tasks
 FROM time_model tm
