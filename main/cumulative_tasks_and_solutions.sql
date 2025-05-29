@@ -1,4 +1,3 @@
--- https://dune.com/queries/5165702/8504903
 WITH tasks_submitted AS (
   SELECT
     date_trunc('day', evt_block_time) AS day,
@@ -26,4 +25,4 @@ SELECT
   SUM(tasks_submitted) OVER (ORDER BY day) AS cumulative_tasks_submitted,
   SUM(solutions_submitted) OVER (ORDER BY day) AS cumulative_solutions_submitted
 FROM daily_counts
-ORDER BY day;
+ORDER BY day DESC;
