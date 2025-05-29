@@ -6,5 +6,6 @@ SELECT
             WHEN model_name IS NULL OR model_name = '' THEN '0x' || model_id
             ELSE model_name
         END
-    ) AS dashboard_link
-FROM query_5191530 -- registered models with names
+    ) AS dashboard_link,
+    '0x' || model_id AS model_id
+FROM query_5191530
