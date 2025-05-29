@@ -1,4 +1,3 @@
--- https://dune.com/queries/5203191
 WITH tasks_submitted AS (
   SELECT
     date_trunc('day', evt_block_time) AS day,
@@ -23,9 +22,9 @@ daily_counts AS (
 )
 SELECT
   day,
-  tasks_submitted,
-  solutions_submitted,
-  SUM(tasks_submitted) OVER (ORDER BY day) AS cumulative_tasks_submitted,
-  SUM(solutions_submitted) OVER (ORDER BY day) AS cumulative_solutions_submitted
+  tasks_submitted AS "Daily Tasks",
+  solutions_submitted AS "Daily Solutions",
+  SUM(tasks_submitted) OVER (ORDER BY day) AS "Cumulative Tasks",
+  SUM(solutions_submitted) OVER (ORDER BY day) AS "Cumulative Solutions"
 FROM daily_counts
 ORDER BY day DESC;
