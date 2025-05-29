@@ -2,6 +2,7 @@
 WITH first_date AS (
   SELECT MIN(DATE(evt_block_time)) AS first_day
   FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+  WHERE DATE(evt_block_time) != DATE('2024-12-05') -- removes 1 task from results for better looking chart. Task fee is 0 on this task
 ),
 date_series AS (
   SELECT time AS day
