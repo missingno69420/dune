@@ -1,6 +1,6 @@
 -- https://dune.com/queries/5203291/
 -- Validators automatically vote nay in contestation votes on their own solutions.
--- We'll count their vote in this query as activity, for now, for the sake of writing a simple query.
+-- We'll count their vote in this query as activity for the sake of writing a simple query.
 SELECT COUNT(*) AS active_validator_count
 FROM (
     SELECT DISTINCT addr
