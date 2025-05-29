@@ -15,7 +15,11 @@ solution_counts AS (
   GROUP BY t.model
 )
 SELECT
-  COALESCE(mn.model_name, to_hex(m.model)) AS model_name,
+  CASE
+    WHEN LENGTH(COALESCE(mn.model_name, to_hex(m.model))) > 8
+    THEN SUBSTRING(COALESCE(mn.model_name, to_hex(m.model)) FROM 1 FOR 5) || '...'
+    ELSE COALESCE(mn.model_name, to_hex(m.model))
+  END AS model_name,
   COALESCE(t.task_count, 0) as task_count,
   COALESCE(s.solution_count, 0) as solution_count
 FROM models m
