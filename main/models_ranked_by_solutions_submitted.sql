@@ -10,6 +10,7 @@ solution_counts AS (
   GROUP BY t.model
 )
 SELECT
+  ROW_NUMBER() OVER (ORDER BY solution_count DESC) AS rank,
   COALESCE(mn.model_name, to_hex(m.model)) AS model_name,
   COALESCE(s.solution_count, 0) as solution_count
 FROM models m
