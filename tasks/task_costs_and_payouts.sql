@@ -1,3 +1,4 @@
+-- https://dune.com/queries/5206095
 SELECT
   t.fee AS task_fee,
   COALESCE(f.modelFee - f.treasuryFee, 0) AS model_owner_fee,
