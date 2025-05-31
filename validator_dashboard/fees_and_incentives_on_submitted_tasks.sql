@@ -17,96 +17,71 @@ time_series AS (
   ) ts
   CROSS JOIN UNNEST(date_array) AS t(time)
 ),
+time_intervals AS (
+  SELECT
+    time AS interval_start,
+    LEAD(time, 1, (SELECT end_time FROM params)) OVER (ORDER BY time) AS interval_end
+  FROM time_series
+),
 tasks AS (
   SELECT
     id AS task_id,
     model AS model_id,
-    fee / POWER(10, 18) AS task_fee,
+    fee AS task_fee,
     evt_block_time AS submission_time
   FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
-  CROSS JOIN params p
-  WHERE evt_block_time >= p.start_time AND evt_block_time <= p.end_time
+  WHERE evt_block_time >= (SELECT start_time FROM params)
+    AND evt_block_time <= (SELECT end_time FROM params)
 ),
-incentive_buckets AS (
+incentives AS (
   SELECT
     taskid AS task_id,
-    date_trunc('minute', evt_block_time) AS bucket_time,
-    SUM(amount) / POWER(10, 18) AS bucket_amount
+    SUM(amount) AS total_incentives
   FROM arbius_arbitrum.arbiusrouterv1_evt_incentiveadded
-  CROSS JOIN params p
-  WHERE evt_block_time >= p.start_time AND evt_block_time <= p.end_time
-  GROUP BY taskid, date_trunc('minute', evt_block_time)
+  GROUP BY taskid
 ),
 task_totals AS (
   SELECT
     t.task_id,
-    t.model_id AS model,
-    t.task_fee,
-    ib.bucket_time,
-    SUM(COALESCE(ib.bucket_amount, 0)) OVER (
-      PARTITION BY t.task_id
-      ORDER BY ib.bucket_time ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-    ) AS cumulative_incentives
+    t.model_id,
+    t.submission_time,
+    t.task_fee + COALESCE(i.total_incentives, 0) AS total_amount
   FROM tasks t
-  LEFT JOIN incentive_buckets ib
-    ON t.task_id = ib.task_id
-    AND ib.bucket_time >= t.submission_time
-    AND ib.bucket_time <= (SELECT end_time FROM params)
+  LEFT JOIN incentives i ON t.task_id = i.task_id
 ),
-time_task_states AS (
+task_intervals AS (
   SELECT
-    ts.time AS T,
-    t.task_id,
-    t.model_id AS model,
-    t.task_fee,
-    COALESCE(MAX(tt.bucket_time), NULL) AS latest_bucket_time
-  FROM time_series ts
-  JOIN tasks t ON t.submission_time <= ts.time
-  LEFT JOIN task_totals tt
-    ON tt.task_id = t.task_id
-    AND tt.bucket_time <= ts.time
-  GROUP BY ts.time, t.task_id, t.model_id, t.task_fee
+    ti.interval_start,
+    tt.model_id,
+    tt.total_amount
+  FROM task_totals tt
+  JOIN time_intervals ti
+    ON tt.submission_time >= ti.interval_start
+    AND tt.submission_time < ti.interval_end
 ),
-task_states_with_incentives AS (
+sums_per_interval AS (
   SELECT
-    tts.T,
-    tts.task_id,
-    tts.model,
-    tts.task_fee + COALESCE(tt.cumulative_incentives, 0) AS total
-  FROM time_task_states tts
-  LEFT JOIN task_totals tt
-    ON tt.task_id = tts.task_id
-    AND tt.bucket_time = tts.latest_bucket_time
+    interval_start,
+    model_id,
+    SUM(total_amount) AS sum_amount
+  FROM task_intervals
+  GROUP BY interval_start, model_id
 ),
-rankings AS (
+model_min_max AS (
   SELECT
-    T,
-    model,
-    task_id,
-    total,
-    ROW_NUMBER() OVER (PARTITION BY T, model ORDER BY total DESC) AS rank_max,
-    ROW_NUMBER() OVER (PARTITION BY T, model ORDER BY total ASC) AS rank_min
-  FROM task_states_with_incentives
-),
-results AS (
-  SELECT
-    T,
-    model,
-    MAX(CASE WHEN rank_max = 1 THEN task_id END) AS max_task_id,
-    MAX(CASE WHEN rank_max = 1 THEN total END) AS max_total,
-    MAX(CASE WHEN rank_min = 1 THEN task_id END) AS min_task_id,
-    MAX(CASE WHEN rank_min = 1 THEN total END) AS min_total
-  FROM rankings
-  GROUP BY T, model
+    model_id,
+    MIN(sum_amount) AS min_sum,
+    MAX(sum_amount) AS max_sum
+  FROM sums_per_interval
+  GROUP BY model_id
 )
 SELECT
-  r.T AS datetime,
-  FORMAT_DATETIME(r.T, 'HH:mm:ss') AS time,
-  COALESCE(m.model_name, TO_HEX(r.model)) AS model,
-  r.max_task_id,
-  r.max_total,
-  r.min_task_id,
-  r.min_total
-FROM results r
-LEFT JOIN query_5169304 m ON r.model = m.model_id
-ORDER BY r.T, r.model;
+  spi.interval_start AS datetime,
+  COALESCE(m.model_name, TO_HEX(spi.model_id)) AS model,
+  spi.sum_amount / POWER(10, 18) AS sum_amount_aius,
+  mmm.min_sum / POWER(10, 18) AS min_sum_aius,
+  mmm.max_sum / POWER(10, 18) AS max_sum_aius
+FROM sums_per_interval spi
+JOIN model_min_max mmm ON spi.model_id = mmm.model_id
+LEFT JOIN query_5169304 m ON spi.model_id = m.model_id
+ORDER BY spi.interval_start, spi.model_id;
