@@ -1,4 +1,4 @@
--- https://dune.com/queries/5194864/8547758
+-- https://dune.com/queries/5194864/
 WITH fees_paid AS (
     -- Aggregate fees from FeesPaid events
     SELECT

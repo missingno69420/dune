@@ -1,4 +1,4 @@
--- https://dune.com/queries/5187474/8536799
+-- https://dune.com/queries/5187474/
 WITH params AS (
   SELECT
     CAST(NOW() - INTERVAL '{{lookback_period_minutes}}' MINUTE AS TIMESTAMP(3)) AS start_time,
