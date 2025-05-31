@@ -1,4 +1,4 @@
--- https://dune.com/queries/5165926/8505115
+-- https://dune.com/queries/5165926/
 WITH first_date AS (
   SELECT MIN(DATE(evt_block_time)) AS first_day
   FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
@@ -53,4 +53,4 @@ SELECT
   c.cumulative_task_fees
 FROM cumulative_fees c
 LEFT JOIN query_5169304 m ON c.model_id = m.model_id
-ORDER BY c.day, COALESCE(m.model_name, TO_HEX(c.model_id)) DESC;
+ORDER BY c.day, model DESC;
