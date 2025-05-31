@@ -24,7 +24,7 @@ incentives AS (
     SELECT
         taskid AS task_id,
         SUM(amount) AS total_incentives
-    FROM arbius_arbitrum.arbiusrouterv1_evt_incentiveadded
+    FROM arbius_arbitrum.arbiusrouterv1_evt_incentiveclaimed
     WHERE taskid IN (SELECT task_id FROM tasks)
     GROUP BY taskid
 ),
