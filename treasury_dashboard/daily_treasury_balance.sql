@@ -1,22 +1,20 @@
 -- https://dune.com/queries/5216894
-WITH treasury_wallets AS (
-  SELECT DISTINCT "to" AS wallet
-  FROM arbius_arbitrum.v2_enginev5_1_evt_treasurytransferred
+WITH current_treasury AS (
+  SELECT treasury_wallet
+  FROM query_5216830
 ),
 transfers AS (
   SELECT
     t.evt_block_time AS block_time,
+    ct.treasury_wallet AS wallet,
     CASE
-      WHEN t."from" IN (SELECT wallet FROM treasury_wallets) THEN t."from"
-      WHEN t."to" IN (SELECT wallet FROM treasury_wallets) THEN t."to"
-    END AS wallet,
-    CASE
-      WHEN t."from" IN (SELECT wallet FROM treasury_wallets) THEN -CAST(t.value AS DOUBLE)
-      WHEN t."to" IN (SELECT wallet FROM treasury_wallets) THEN CAST(t.value AS DOUBLE)
+      WHEN t."from" = ct.treasury_wallet THEN -CAST(t.value AS DOUBLE)
+      WHEN t."to" = ct.treasury_wallet THEN CAST(t.value AS DOUBLE)
     END AS net_change
   FROM erc20_arbitrum.evt_transfer t
+  CROSS JOIN current_treasury ct
   WHERE t.contract_address = 0x4a24B101728e07A52053c13FB4dB2BcF490CAbc3
-    AND (t."from" IN (SELECT wallet FROM treasury_wallets) OR t."to" IN (SELECT wallet FROM treasury_wallets))
+    AND (t."from" = ct.treasury_wallet OR t."to" = ct.treasury_wallet)
 ),
 daily_net_changes AS (
   SELECT
@@ -38,4 +36,4 @@ SELECT
   wallet,
   balance / 1e18 AS balance_aius
 FROM cumulative_balances
-ORDER BY day, wallet;
+ORDER BY day DESC;
