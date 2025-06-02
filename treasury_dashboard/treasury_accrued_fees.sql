@@ -83,7 +83,8 @@ daily_snapshots AS (
     d.snapshot_time AS time,
     COALESCE(r.accruedFees, 0) AS accruedFees,
     'daily' AS event_type,
-    NULL AS withdrawn_amount
+    NULL AS withdrawn_amount,
+    0 AS type_order
   FROM daily_timestamps d
   LEFT JOIN recent_events r
     ON d.snapshot_time = r.snapshot_time
@@ -94,7 +95,8 @@ withdrawal_snapshots AS (
     time,
     prev_accruedFees AS accruedFees,
     'pre-withdrawal' AS event_type,
-    NULL AS withdrawn_amount
+    NULL AS withdrawn_amount,
+    1 AS type_order
   FROM events_with_accrued
   WHERE event_type = 'withdrawal'
   UNION ALL
@@ -102,7 +104,8 @@ withdrawal_snapshots AS (
     time,
     0 AS accruedFees,
     'withdrawal' AS event_type,
-    withdrawn_amount
+    withdrawn_amount,
+    2 AS type_order
   FROM events_with_accrued
   WHERE event_type = 'withdrawal'
 ),
@@ -111,14 +114,16 @@ final_data AS (
     time,
     accruedFees,
     event_type,
-    withdrawn_amount
+    withdrawn_amount,
+    type_order
   FROM daily_snapshots
   UNION ALL
   SELECT
     time,
     accruedFees,
     event_type,
-    withdrawn_amount
+    withdrawn_amount,
+    type_order
   FROM withdrawal_snapshots
 )
 SELECT
@@ -130,4 +135,4 @@ SELECT
     ELSE NULL
   END AS withdrawn_amount
 FROM final_data
-ORDER BY time
+ORDER BY time, type_order
