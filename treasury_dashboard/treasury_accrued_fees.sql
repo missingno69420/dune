@@ -1,5 +1,4 @@
 -- https://dune.com/queries/5220360
--- Define the treasury address history for each contract instance
 WITH treasury_history AS (
   SELECT
     evt_block_time,
@@ -111,8 +110,11 @@ final_data AS (
 )
 SELECT
   time,
-  CAST(accruedFees AS DOUBLE) / 1000000000000000000 AS accruedFees,
+  CAST(accruedFees AS DOUBLE) / 1e18 AS accruedFees,  -- Convert from wei to ether with decimals
   event_type,
-  CASE WHEN event_type = 'withdrawal' THEN CAST(withdrawn_amount AS DOUBLE) / 1000000000000000000 ELSE NULL END AS withdrawn_amount
+  CASE
+    WHEN event_type = 'withdrawal' THEN CAST(withdrawn_amount AS DOUBLE) / 1e18
+    ELSE NULL
+  END AS withdrawn_amount  -- Convert from wei to ether with decimals for withdrawals
 FROM final_data
 ORDER BY time
