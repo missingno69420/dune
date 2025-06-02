@@ -3,6 +3,11 @@ WITH current_treasury AS (
   SELECT treasury_wallet
   FROM query_5216830
 ),
+engine_deposit AS (
+  SELECT evt_block_number, evt_tx_index
+  FROM erc20_arbitrum.evt_transfer
+  WHERE evt_tx_hash = 0x25d6486d8f4c55b875546b573239e0e367c95eac1b27017af3cce986bd24495e
+),
 transfers AS (
   SELECT
     t.evt_block_time AS block_time,
@@ -15,6 +20,9 @@ transfers AS (
   CROSS JOIN current_treasury ct
   WHERE t.contract_address = 0x4a24B101728e07A52053c13FB4dB2BcF490CAbc3
     AND (t."from" = ct.treasury_wallet OR t."to" = ct.treasury_wallet)
+    AND (t.evt_block_number > (SELECT evt_block_number FROM engine_deposit)
+         OR (t.evt_block_number = (SELECT evt_block_number FROM engine_deposit)
+             AND t.evt_tx_index > (SELECT evt_tx_index FROM engine_deposit)))
 ),
 daily_net_changes AS (
   SELECT
