@@ -50,8 +50,13 @@ all_events AS (
 events_with_accrued AS (
   SELECT
     *,
-    SUM(delta) OVER (ORDER BY time, tx_hash, index) AS accruedFees
-  FROM all_events
+    LAG(accruedFees, 1, 0) OVER (ORDER BY time, tx_hash, index) AS prev_accruedFees
+  FROM (
+    SELECT
+      *,
+      SUM(delta) OVER (ORDER BY time, tx_hash, index) AS accruedFees
+    FROM all_events
+  ) sub
 ),
 daily_timestamps AS (
   SELECT DISTINCT
@@ -87,8 +92,16 @@ daily_snapshots AS (
 withdrawal_snapshots AS (
   SELECT
     time,
+    prev_accruedFees AS accruedFees,
+    'pre-withdrawal' AS event_type,
+    NULL AS withdrawn_amount
+  FROM events_with_accrued
+  WHERE event_type = 'withdrawal'
+  UNION ALL
+  SELECT
+    time,
     0 AS accruedFees,
-    event_type,
+    'withdrawal' AS event_type,
     withdrawn_amount
   FROM events_with_accrued
   WHERE event_type = 'withdrawal'
@@ -110,11 +123,11 @@ final_data AS (
 )
 SELECT
   time,
-  CAST(accruedFees AS DOUBLE) / 1e18 AS accruedFees,  -- Convert from wei to ether with decimals
+  CAST(accruedFees AS DOUBLE) / 1e18 AS accruedFees,
   event_type,
   CASE
     WHEN event_type = 'withdrawal' THEN CAST(withdrawn_amount AS DOUBLE) / 1e18
     ELSE NULL
-  END AS withdrawn_amount  -- Convert from wei to ether with decimals for withdrawals
+  END AS withdrawn_amount
 FROM final_data
 ORDER BY time
