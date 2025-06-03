@@ -20,7 +20,8 @@ rewards_paid AS (
         t.model,
         SUM(p.treasury_reward) AS rewards_to_treasury,
         SUM(p.task_owner_reward) AS rewards_to_task_owners,
-        SUM(p.validator_reward) AS rewards_to_validators
+        SUM(p.validator_reward) AS rewards_to_validators,
+        SUM(p.total_rewards) AS rewards_to_vote_escrow
     FROM query_5179596 p
     JOIN arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t
         ON p.task_id = t.id
@@ -53,7 +54,7 @@ all_dates_models AS (
 )
 SELECT
     d.date,
-    COALESCE(m.model_name, to_hex(d.model)) AS model,  -- Display model name if available, otherwise hex model ID
+    COALESCE(m.model_name, to_hex(d.model)) AS model,
     -- Fees Paid (in AIUS)
     COALESCE(CAST(f.fees_to_model_owners AS double) / 1e18, 0) AS fees_to_model_owners,
     COALESCE(CAST(f.fees_to_treasury AS double) / 1e18, 0) AS fees_to_treasury,
@@ -62,10 +63,11 @@ SELECT
     COALESCE(CAST(r.rewards_to_treasury AS double) / 1e18, 0) AS rewards_to_treasury,
     COALESCE(CAST(r.rewards_to_task_owners AS double) / 1e18, 0) AS rewards_to_task_owners,
     COALESCE(CAST(r.rewards_to_validators AS double) / 1e18, 0) AS rewards_to_validators,
+    COALESCE(CAST(r.rewards_to_vote_escrow AS double) / 1e18, 0) AS rewards_to_vote_escrow,
     -- Incentives Paid (in AIUS)
     COALESCE(CAST(i.incentives_to_validators AS double) / 1e18, 0) AS incentives_to_validators
 FROM all_dates_models d
-LEFT JOIN query_5169304 m ON d.model = m.model_id  -- Join to get model names
+LEFT JOIN query_5169304 m ON d.model = m.model_id
 LEFT JOIN fees_paid f ON d.date = f.date AND d.model = f.model
 LEFT JOIN rewards_paid r ON d.date = r.date AND d.model = r.model
 LEFT JOIN incentives_paid i ON d.date = i.date AND d.model = i.model
