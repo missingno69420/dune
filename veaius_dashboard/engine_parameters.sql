@@ -1,13 +1,13 @@
 -- https://dune.com/queries/5225137
 SELECT * FROM (
   VALUES (
-    CAST(2400000000000000 AS UINT256),     -- validatorMinimumPercentage
-    CAST(10000000000000 AS UINT256),       -- slashAmountPercentage
-    CAST(100000000000000000 AS UINT256),   -- solutionFeePercentage
-    CAST(100000000000000000 AS UINT256),   -- retractionFeePercentage
-    CAST(100000000000000000 AS UINT256),   -- treasuryRewardPercentage
-    CAST(100000000000000000 AS UINT256),   -- taskOwnerRewardPercentage
-    CAST(1000000000000000000 AS UINT256)  -- solutionModelFeePercentage
+    (CAST(2400000000000000 AS DECIMAL(38,0)) / POWER(10,18)) * 100, -- validatorMinimumPercentage
+    (CAST(10000000000000 AS DECIMAL(38,0)) / POWER(10,18)) * 100, -- slashAmountPercentage
+    (CAST(100000000000000000 AS DECIMAL(38,0)) / POWER(10,18)) * 100, -- solutionFeePercentage
+    (CAST(100000000000000000 AS DECIMAL(38,0)) / POWER(10,18)) * 100, -- retractionFeePercentage
+    (CAST(100000000000000000 AS DECIMAL(38,0)) / POWER(10,18)) * 100, -- treasuryRewardPercentage
+    (CAST(100000000000000000 AS DECIMAL(38,0)) / POWER(10,18)) * 100, -- taskOwnerRewardPercentage
+    (CAST(1000000000000000000 AS DECIMAL(38,0)) / POWER(10,18)) * 100 -- solutionModelFeePercentage
   )
 ) AS t (
   validator_minimum_percentage,
