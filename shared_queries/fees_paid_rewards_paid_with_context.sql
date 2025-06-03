@@ -8,6 +8,7 @@ WITH all_events AS (
     evt_block_time AS block_time, -- Timestamp for filtering or aggregation
     'RewardsPaid' AS event_type, -- Label for RewardsPaid events
     NULL AS task_id, -- Placeholder for task ID (to be assigned later)
+    totalRewards AS total_rewards, -- Total rewards from RewardsPaid (raw wei)
     treasuryReward AS treasury_reward, -- Reward to treasury (raw wei)
     taskOwnerReward AS task_owner_reward, -- Reward to task owner (raw wei)
     validatorReward AS validator_reward, -- Reward to validator (raw wei)
@@ -22,6 +23,7 @@ WITH all_events AS (
     evt_block_time AS block_time,
     'FeesPaid' AS event_type,
     NULL AS task_id,
+    NULL AS total_rewards, -- No total rewards for FeesPaid
     NULL AS treasury_reward, -- Placeholder for RewardsPaid fields
     NULL AS task_owner_reward,
     NULL AS validator_reward,
@@ -36,6 +38,7 @@ WITH all_events AS (
     evt_block_time AS block_time,
     'SolutionClaimed' AS event_type,
     task AS task_id, -- Native task ID for SolutionClaimed
+    NULL AS total_rewards, -- No total rewards for SolutionClaimed
     NULL AS treasury_reward,
     NULL AS task_owner_reward,
     NULL AS validator_reward,
@@ -50,6 +53,7 @@ WITH all_events AS (
     evt_block_time AS block_time,
     'ContestationVoteFinish' AS event_type,
     id AS task_id, -- Native task ID for ContestationVoteFinish
+    NULL AS total_rewards, -- No total rewards for ContestationVoteFinish
     NULL AS treasury_reward,
     NULL AS task_owner_reward,
     NULL AS validator_reward,
@@ -75,6 +79,7 @@ rewards_fees_events AS (
     index,
     block_time,
     event_type,
+    total_rewards, -- Carry through total rewards
     treasury_reward,
     task_owner_reward,
     validator_reward,
@@ -141,6 +146,7 @@ events_with_task_id AS (
     r.tx_hash,
     r.index,
     r.event_type,
+    r.total_rewards, -- Include total rewards in output
     r.treasury_reward,
     r.task_owner_reward,
     r.validator_reward,
@@ -188,6 +194,7 @@ SELECT
   tx_hash,
   index,
   event_type,
+  total_rewards, -- vote escrow receives total_rewards
   treasury_reward,
   task_owner_reward,
   validator_reward,
