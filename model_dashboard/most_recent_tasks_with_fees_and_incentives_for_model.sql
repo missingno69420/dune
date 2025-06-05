@@ -1,5 +1,4 @@
 -- https://dune.com/queries/5240220/
--- most recent tasks with fees and incentives for model
 WITH last_n_tasks AS (
     SELECT
         evt_block_time AS block_time,
@@ -16,22 +15,23 @@ WITH last_n_tasks AS (
 ),
 incentives_total AS (
     SELECT
-        taskid AS task_id,
-        SUM(amount) / POWER(10, 18) AS total_incentives_aius
-    FROM arbius_arbitrum.arbiusrouterv1_evt_incentiveadded
-    WHERE taskid IN (SELECT task_id FROM last_n_tasks)
-    GROUP BY taskid
+        l.task_id,
+        COALESCE(SUM(ia.amount) / POWER(10, 18), 0) AS total_incentives_aius
+    FROM last_n_tasks l
+    LEFT JOIN arbius_arbitrum.arbiusrouterv1_evt_incentiveadded ia
+        ON l.task_id = ia.taskid
+    GROUP BY l.task_id
 ),
 tasks_with_details AS (
     SELECT
-        t.rank,
-        t.task_id,
-        t.block_time,
-        t.tx_hash,
-        t.task_fee_aius,
-        COALESCE(i.total_incentives_aius, 0) AS total_incentives_aius
-    FROM last_n_tasks t
-    LEFT JOIN incentives_total i ON t.task_id = i.task_id
+        l.rank,
+        l.task_id,
+        l.block_time,
+        l.tx_hash,
+        l.task_fee_aius,
+        i.total_incentives_aius
+    FROM last_n_tasks l
+    LEFT JOIN incentives_total i ON l.task_id = i.task_id
 )
 SELECT
     rank,
