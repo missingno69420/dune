@@ -88,4 +88,4 @@ LEFT JOIN (
   WHERE rn = 1
 ) r ON r.ts_time = tm.ts_time
 LEFT JOIN query_5169304 m ON tm.model = m.model_id
-ORDER BY tm.ts_time;
+ORDER BY tm.ts_time desc;
