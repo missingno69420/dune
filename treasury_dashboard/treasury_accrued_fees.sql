@@ -4,14 +4,14 @@ WITH treasury_history AS (
     evt_block_time,
     "to" AS treasury,
     LEAD(evt_block_time) OVER (ORDER BY evt_block_time) AS next_change_time
-  FROM arbius_arbitrum.v2_enginev5_1_evt_treasurytransferred
+  FROM arbius_arbitrum.engine_evt_treasurytransferred
 ),
 withdraw_calls AS (
   SELECT
     c.call_block_time,
     c.call_tx_hash,
     th.treasury
-  FROM arbius_arbitrum.v2_enginev5_1_call_withdrawaccruedfees c
+  FROM arbius_arbitrum.engine_call_withdrawaccruedfees c
   JOIN treasury_history th
     ON c.call_block_time >= th.evt_block_time
     AND (th.next_change_time IS NULL OR c.call_block_time < th.next_change_time)
@@ -38,7 +38,7 @@ accrual_events AS (
     (treasuryFee + (remainingFee - validatorFee)) AS delta,
     'accrual' AS event_type,
     NULL AS withdrawn_amount
-  FROM arbius_arbitrum.v2_enginev5_1_evt_feespaid
+  FROM arbius_arbitrum.engine_evt_feespaid
 ),
 all_events AS (
   SELECT time, tx_hash, index, delta, event_type, withdrawn_amount

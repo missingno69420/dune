@@ -3,14 +3,14 @@ WITH fees_paid AS (
   SELECT
     date_trunc('day', evt_block_time) AS day,
     SUM(treasuryFee + (remainingFee - validatorFee)) AS treasury_fee
-  FROM arbius_arbitrum.v2_enginev5_1_evt_feespaid
+  FROM arbius_arbitrum.engine_evt_feespaid
   GROUP BY 1
 ),
 rewards_paid AS (
   SELECT
     date_trunc('day', evt_block_time) AS day,
     SUM(treasuryReward) AS treasury_reward
-  FROM arbius_arbitrum.v2_enginev5_1_evt_rewardspaid
+  FROM arbius_arbitrum.engine_evt_rewardspaid
   GROUP BY 1
 ),
 combined AS (

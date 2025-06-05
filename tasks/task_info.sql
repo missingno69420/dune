@@ -8,7 +8,7 @@ WITH all_events AS (
     t.evt_tx_hash AS tx_hash,
     t.evt_index AS evt_index,
     'fee: ' || CAST(t.fee AS VARCHAR) AS details
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t
+  FROM arbius_arbitrum.engine_evt_tasksubmitted t
   WHERE t.id = {{task_id}}
 
   UNION ALL
@@ -21,7 +21,7 @@ WITH all_events AS (
     s.evt_tx_hash AS tx_hash,
     s.evt_index AS evt_index,
     'submitted by: ' || CAST(s.addr AS VARCHAR) AS details
-  FROM arbius_arbitrum.v2_enginev5_1_evt_solutionsubmitted s
+  FROM arbius_arbitrum.engine_evt_solutionsubmitted s
   WHERE s.task = {{task_id}}
 
   UNION ALL
@@ -34,7 +34,7 @@ WITH all_events AS (
     s.evt_tx_hash AS tx_hash,
     s.evt_index AS evt_index,
     'claimed by: ' || CAST(s.addr AS VARCHAR) AS details
-  FROM arbius_arbitrum.v2_enginev5_1_evt_solutionclaimed s
+  FROM arbius_arbitrum.engine_evt_solutionclaimed s
   WHERE s.task = {{task_id}}
 
   UNION ALL
@@ -47,7 +47,7 @@ WITH all_events AS (
     v.evt_tx_hash AS tx_hash,
     v.evt_index AS evt_index,
     'validator: ' || CAST(v.addr AS VARCHAR) || ', yea: ' || CAST(v.yea AS VARCHAR) AS details
-  FROM arbius_arbitrum.v2_enginev5_1_evt_contestationvote v
+  FROM arbius_arbitrum.engine_evt_contestationvote v
   WHERE v.task = {{task_id}}
 
   UNION ALL
@@ -60,7 +60,7 @@ WITH all_events AS (
     f.evt_tx_hash AS tx_hash,
     f.evt_index AS evt_index,
     'start_idx: ' || CAST(f.start_idx AS VARCHAR) || ', end_idx: ' || CAST(f.end_idx AS VARCHAR) AS details
-  FROM arbius_arbitrum.v2_enginev5_1_evt_contestationvotefinish f
+  FROM arbius_arbitrum.engine_evt_contestationvotefinish f
   WHERE f.id = {{task_id}}
 
   UNION ALL

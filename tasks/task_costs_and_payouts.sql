@@ -8,12 +8,12 @@ SELECT
   COALESCE(r.taskOwnerReward, 0) AS task_owner_reward,
   COALESCE(r.validatorReward, 0) AS validator_reward,
   COALESCE(i.amount, 0) AS incentive_paid
-FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t
-LEFT JOIN arbius_arbitrum.v2_enginev5_1_evt_solutionclaimed s
+FROM arbius_arbitrum.engine_evt_tasksubmitted t
+LEFT JOIN arbius_arbitrum.engine_evt_solutionclaimed s
   ON t.id = s.task
-LEFT JOIN arbius_arbitrum.v2_enginev5_1_evt_feespaid f
+LEFT JOIN arbius_arbitrum.engine_evt_feespaid f
   ON s.evt_tx_hash = f.evt_tx_hash AND f.evt_index = s.evt_index + 1
-LEFT JOIN arbius_arbitrum.v2_enginev5_1_evt_rewardspaid r
+LEFT JOIN arbius_arbitrum.engine_evt_rewardspaid r
   ON s.evt_tx_hash = r.evt_tx_hash AND r.evt_index = s.evt_index + 2
 LEFT JOIN arbius_arbitrum.arbiusrouterv1_evt_incentiveclaimed i
   ON t.id = i.taskid

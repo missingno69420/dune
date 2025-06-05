@@ -8,7 +8,7 @@ WITH fees_paid AS (
         SUM(p.treasury_total_fee) AS fees_to_treasury,
         SUM(p.validator_fee) AS fees_to_validators
     FROM query_5179596 p
-    JOIN arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t
+    JOIN arbius_arbitrum.engine_evt_tasksubmitted t
         ON p.task_id = t.id
     WHERE p.event_type = 'FeesPaid'
     GROUP BY date_trunc('day', p.block_time), t.model
@@ -23,7 +23,7 @@ rewards_paid AS (
         SUM(p.validator_reward) AS rewards_to_validators,
         SUM(p.total_rewards) AS rewards_to_vote_escrow
     FROM query_5179596 p
-    JOIN arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t
+    JOIN arbius_arbitrum.engine_evt_tasksubmitted t
         ON p.task_id = t.id
     WHERE p.event_type = 'RewardsPaid'
     GROUP BY date_trunc('day', p.block_time), t.model
@@ -35,7 +35,7 @@ incentives_paid AS (
         t.model,
         SUM(i.amount) AS incentives_to_validators
     FROM arbius_arbitrum.arbiusrouterv1_evt_incentiveclaimed i
-    JOIN arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t
+    JOIN arbius_arbitrum.engine_evt_tasksubmitted t
         ON i.taskid = t.id
     GROUP BY date_trunc('day', i.evt_block_time), t.model
 ),

@@ -4,7 +4,7 @@ WITH latest_rates AS (
     id AS model_id,
     rate,
     ROW_NUMBER() OVER (PARTITION BY id ORDER BY evt_block_number DESC, evt_index DESC) AS rn
-  FROM arbius_arbitrum.v2_enginev5_1_evt_solutionmineableratechange
+  FROM arbius_arbitrum.engine_evt_solutionmineableratechange
 )
 SELECT
   m.model_name,

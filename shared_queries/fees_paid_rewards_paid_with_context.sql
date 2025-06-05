@@ -15,7 +15,7 @@ WITH all_events AS (
     NULL AS model_owner_fee, -- Placeholder for FeesPaid fields
     NULL AS treasury_total_fee, -- Placeholder for FeesPaid total fee
     NULL AS validator_fee -- Placeholder for FeesPaid validator fee
-  FROM arbius_arbitrum.v2_enginev5_1_evt_rewardspaid
+  FROM arbius_arbitrum.engine_evt_rewardspaid
   UNION ALL
   SELECT
     evt_tx_hash AS tx_hash,
@@ -30,7 +30,7 @@ WITH all_events AS (
     (modelFee - treasuryFee) AS model_owner_fee, -- Fee to model owner (raw wei)
     (treasuryFee + (remainingFee - validatorFee)) AS treasury_total_fee, -- Total fee to treasury (raw wei)
     validatorFee AS validator_fee -- Validator fee (raw wei)
-  FROM arbius_arbitrum.v2_enginev5_1_evt_feespaid
+  FROM arbius_arbitrum.engine_evt_feespaid
   UNION ALL
   SELECT
     evt_tx_hash AS tx_hash,
@@ -45,7 +45,7 @@ WITH all_events AS (
     NULL AS model_owner_fee,
     NULL AS treasury_total_fee,
     NULL AS validator_fee
-  FROM arbius_arbitrum.v2_enginev5_1_evt_solutionclaimed
+  FROM arbius_arbitrum.engine_evt_solutionclaimed
   UNION ALL
   SELECT
     evt_tx_hash AS tx_hash,
@@ -60,7 +60,7 @@ WITH all_events AS (
     NULL AS model_owner_fee,
     NULL AS treasury_total_fee,
     NULL AS validator_fee
-  FROM arbius_arbitrum.v2_enginev5_1_evt_contestationvotefinish
+  FROM arbius_arbitrum.engine_evt_contestationvotefinish
 ),
 -- Add context for task ID assignment by capturing next events and task IDs
 events_with_context AS (
@@ -102,7 +102,7 @@ fees_candidates AS (
     f.evt_index AS fees_index, -- Index of FeesPaid
     ROW_NUMBER() OVER (PARTITION BY r.tx_hash, r.index ORDER BY f.evt_index DESC) AS fee_rank -- Rank by proximity (1 = closest)
   FROM rewards_fees_events r
-  LEFT JOIN arbius_arbitrum.v2_enginev5_1_evt_feespaid f
+  LEFT JOIN arbius_arbitrum.engine_evt_feespaid f
     ON r.tx_hash = f.evt_tx_hash
     AND f.evt_index < r.index
   WHERE r.event_type = 'RewardsPaid'
@@ -119,7 +119,7 @@ solution_candidates AS (
     s.task AS solution_task_id,
     ROW_NUMBER() OVER (PARTITION BY f.tx_hash, f.rewards_fees_index, f.fees_index ORDER BY s.evt_index DESC) AS solution_rank
   FROM fees_candidates f
-  LEFT JOIN arbius_arbitrum.v2_enginev5_1_evt_solutionclaimed s
+  LEFT JOIN arbius_arbitrum.engine_evt_solutionclaimed s
     ON f.tx_hash = s.evt_tx_hash
     AND s.evt_index < f.fees_index
   WHERE f.fee_rank = 1
@@ -134,7 +134,7 @@ solution_for_fees AS (
     s.task AS solution_task_id,
     ROW_NUMBER() OVER (PARTITION BY r.tx_hash, r.index ORDER BY s.evt_index DESC) AS solution_rank
   FROM rewards_fees_events r
-  LEFT JOIN arbius_arbitrum.v2_enginev5_1_evt_solutionclaimed s
+  LEFT JOIN arbius_arbitrum.engine_evt_solutionclaimed s
     ON r.tx_hash = s.evt_tx_hash
     AND s.evt_index < r.index
   WHERE r.event_type = 'FeesPaid'

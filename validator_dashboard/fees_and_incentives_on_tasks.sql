@@ -29,7 +29,7 @@ tasks AS (
     model AS model_id,
     fee AS task_fee,
     evt_block_time AS submission_time
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+  FROM arbius_arbitrum.engine_evt_tasksubmitted
   WHERE evt_block_time >= (SELECT start_time FROM params)
     AND evt_block_time <= (SELECT end_time FROM params)
 ),

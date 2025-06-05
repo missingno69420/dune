@@ -4,10 +4,10 @@
 SELECT COUNT(*) AS active_validator_count
 FROM (
     SELECT DISTINCT addr
-    FROM arbius_arbitrum.v2_enginev5_1_evt_solutionsubmitted
+    FROM arbius_arbitrum.engine_evt_solutionsubmitted
     WHERE evt_block_time >= NOW() - INTERVAL '24' hour
     UNION
     SELECT DISTINCT addr
-    FROM arbius_arbitrum.v2_enginev5_1_evt_contestationvote
+    FROM arbius_arbitrum.engine_evt_contestationvote
     WHERE evt_block_time >= NOW() - INTERVAL '24' hour
 ) AS active_validators;

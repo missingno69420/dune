@@ -3,7 +3,7 @@ WITH daily_ve_rewards AS (
   SELECT
     date_trunc('day', evt_block_time) AS day,
     SUM(totalRewards) AS ve_rewards
-  FROM arbius_arbitrum.v2_enginev5_1_evt_rewardspaid
+  FROM arbius_arbitrum.engine_evt_rewardspaid
   GROUP BY 1
 ),
 cumulative_ve_rewards AS (

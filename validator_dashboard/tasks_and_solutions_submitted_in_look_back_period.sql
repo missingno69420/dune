@@ -15,12 +15,12 @@ time_series AS (
 ),
 events AS (
   SELECT evt_block_time AS time, 1 AS task_count, 0 AS solution_count
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+  FROM arbius_arbitrum.engine_evt_tasksubmitted
   WHERE evt_block_time >= (SELECT start_time FROM params)
     AND evt_block_time <= (SELECT end_time FROM params)
   UNION ALL
   SELECT evt_block_time AS time, 0 AS task_count, 1 AS solution_count
-  FROM arbius_arbitrum.v2_enginev5_1_evt_solutionsubmitted
+  FROM arbius_arbitrum.engine_evt_solutionsubmitted
   WHERE evt_block_time >= (SELECT start_time FROM params)
     AND evt_block_time <= (SELECT end_time FROM params)
 ),

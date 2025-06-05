@@ -1,3 +1,4 @@
+-- https://dune.com/queries/5179786
 WITH tasks AS (
   SELECT
     id AS task_id,
@@ -7,7 +8,7 @@ WITH tasks AS (
     evt_tx_index, -- Transaction index within the block
     evt_index, -- Log index within the transaction
     model AS model_id -- Model ID for joining with query_5169304
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+  FROM arbius_arbitrum.engine_evt_tasksubmitted
   WHERE evt_block_time >= NOW() - INTERVAL '{{lookback_period_minutes}}' MINUTE -- Lookback period (default 1440 minutes)
 ),
 payouts AS (

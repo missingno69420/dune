@@ -2,14 +2,14 @@ WITH tasks_submitted AS (
   SELECT
     date_trunc('day', evt_block_time) AS day,
     COUNT(*) AS tasks_submitted
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+  FROM arbius_arbitrum.engine_evt_tasksubmitted
   GROUP BY 1
 ),
 solutions_submitted AS (
   SELECT
     date_trunc('day', evt_block_time) AS day,
     COUNT(*) AS solutions_submitted
-  FROM arbius_arbitrum.v2_enginev5_1_evt_solutionsubmitted
+  FROM arbius_arbitrum.engine_evt_solutionsubmitted
   GROUP BY 1
 ),
 daily_counts AS (

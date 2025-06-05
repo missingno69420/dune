@@ -13,7 +13,7 @@ FROM (
     FROM query_5179596 e
     LEFT JOIN (
         SELECT id as task_id, model AS model_id
-        FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+        FROM arbius_arbitrum.engine_evt_tasksubmitted
     ) t
         ON e.task_id = t.task_id
     LEFT JOIN query_5169304 m

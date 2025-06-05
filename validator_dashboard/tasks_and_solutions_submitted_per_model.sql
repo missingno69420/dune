@@ -19,13 +19,13 @@ time_series AS (
 ),
 models AS (
   SELECT DISTINCT model AS model_id
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+  FROM arbius_arbitrum.engine_evt_tasksubmitted
   WHERE evt_block_time >= (SELECT start_time FROM params)
     AND evt_block_time <= (SELECT end_time FROM params)
   UNION
   SELECT DISTINCT t.model AS model_id
-  FROM arbius_arbitrum.v2_enginev5_1_evt_solutionsubmitted s
-  JOIN arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t ON s.task = t.id
+  FROM arbius_arbitrum.engine_evt_solutionsubmitted s
+  JOIN arbius_arbitrum.engine_evt_tasksubmitted t ON s.task = t.id
   WHERE s.evt_block_time >= (SELECT start_time FROM params)
     AND s.evt_block_time <= (SELECT end_time FROM params)
 ),
@@ -40,7 +40,7 @@ tasks AS (
     t.model AS model_id,
     COUNT(*) AS tasks_submitted
   FROM time_series ts
-  JOIN arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t
+  JOIN arbius_arbitrum.engine_evt_tasksubmitted t
     ON t.evt_block_time >= ts.interval_start
     AND t.evt_block_time < ts.interval_start + (SELECT interval FROM params)
   WHERE t.evt_block_time >= (SELECT start_time FROM params)
@@ -52,10 +52,10 @@ solutions AS (
     t.model AS model_id,
     COUNT(*) AS solutions_submitted
   FROM time_series ts
-  JOIN arbius_arbitrum.v2_enginev5_1_evt_solutionsubmitted s
+  JOIN arbius_arbitrum.engine_evt_solutionsubmitted s
     ON s.evt_block_time >= ts.interval_start
     AND s.evt_block_time < ts.interval_start + (SELECT interval FROM params)
-  JOIN arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t
+  JOIN arbius_arbitrum.engine_evt_tasksubmitted t
     ON s.task = t.id
   WHERE s.evt_block_time >= (SELECT start_time FROM params)
   GROUP BY ts.interval_start, t.model

@@ -5,7 +5,7 @@ WITH register_calls AS (
     call_trace_address,
     fee_ AS initial_fee,
     ROW_NUMBER() OVER (PARTITION BY call_tx_hash ORDER BY call_trace_address) AS call_order
-  FROM arbius_arbitrum.v2_enginev5_1_call_registermodel
+  FROM arbius_arbitrum.engine_call_registermodel
   WHERE call_success = TRUE
 ),
 registered_events AS (
@@ -16,7 +16,7 @@ registered_events AS (
     evt_block_time,
     id,
     ROW_NUMBER() OVER (PARTITION BY evt_tx_hash ORDER BY evt_index) AS event_order
-  FROM arbius_arbitrum.v2_enginev5_1_evt_modelregistered
+  FROM arbius_arbitrum.engine_evt_modelregistered
 ),
 initial_fees AS (
   SELECT
@@ -35,7 +35,7 @@ fee_changes AS (
     fee,
     evt_block_number,
     evt_index
-  FROM arbius_arbitrum.v2_enginev5_1_evt_modelfeechanged
+  FROM arbius_arbitrum.engine_evt_modelfeechanged
 ),
 all_fee_settings AS (
   SELECT

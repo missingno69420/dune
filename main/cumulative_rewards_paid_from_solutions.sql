@@ -5,7 +5,7 @@ WITH daily_totals AS (
         SUM(treasuryReward) AS daily_treasury,
         SUM(taskOwnerReward) AS daily_task_owner,
         SUM(validatorReward) AS daily_validator
-    FROM arbius_arbitrum.v2_enginev5_1_evt_rewardspaid
+    FROM arbius_arbitrum.engine_evt_rewardspaid
     GROUP BY date_trunc('day', evt_block_time)
 ),
 cumulative_sums AS (

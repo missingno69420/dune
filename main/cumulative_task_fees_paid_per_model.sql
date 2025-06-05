@@ -1,7 +1,7 @@
 -- https://dune.com/queries/5165926/
 WITH first_date AS (
   SELECT MIN(DATE(evt_block_time)) AS first_day
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+  FROM arbius_arbitrum.engine_evt_tasksubmitted
   WHERE DATE(evt_block_time) != DATE('2024-12-05') -- removes 1 task from results for better looking chart. Task fee is 0 on this task
 ),
 date_series AS (
@@ -17,7 +17,7 @@ date_series AS (
 ),
 unique_models AS (
   SELECT DISTINCT model AS model_id
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+  FROM arbius_arbitrum.engine_evt_tasksubmitted
 ),
 grid AS (
   SELECT d.day, m.model_id
@@ -29,7 +29,7 @@ daily_fees AS (
     DATE(evt_block_time) AS day,
     model AS model_id,
     SUM(fee / 1e18) AS daily_task_fees
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+  FROM arbius_arbitrum.engine_evt_tasksubmitted
   GROUP BY 1, 2
 ),
 grid_with_fees AS (

@@ -4,7 +4,7 @@ WITH tasks_submitted AS (
     date_trunc('day', evt_block_time) AS day,
     model AS model_id,
     COUNT(*) AS tasks_submitted
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+  FROM arbius_arbitrum.engine_evt_tasksubmitted
   GROUP BY 1, 2
 )
 SELECT

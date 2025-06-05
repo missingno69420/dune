@@ -16,7 +16,7 @@ tasks AS (
     SELECT
         t.id AS task_id,
         t.model AS model_id
-    FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t
+    FROM arbius_arbitrum.engine_evt_tasksubmitted t
     JOIN payouts p ON t.id = p.task_id
 ),
 -- Step 3: Calculate total incentives for each task

@@ -5,7 +5,7 @@ WITH fees_paid AS (
     (modelFee - treasuryFee) AS model_owner_fee,
     (treasuryFee + (remainingFee - validatorFee)) AS treasury_fee,
     validatorFee AS validator_fee
-  FROM arbius_arbitrum.v2_enginev5_1_evt_feespaid
+  FROM arbius_arbitrum.engine_evt_feespaid
 ),
 daily_totals AS (
   SELECT

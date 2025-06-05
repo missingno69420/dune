@@ -21,9 +21,9 @@ initial_state AS (
   SELECT
     t.model,
     COUNT(*) AS initial_unsolved
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t
+  FROM arbius_arbitrum.engine_evt_tasksubmitted t
   CROSS JOIN params p
-  LEFT JOIN arbius_arbitrum.v2_enginev5_1_evt_solutionsubmitted s
+  LEFT JOIN arbius_arbitrum.engine_evt_solutionsubmitted s
     ON t.id = s.task AND s.evt_block_time < p.start_time
   WHERE t.evt_block_time < p.start_time AND s.task IS NULL
   GROUP BY t.model
@@ -42,7 +42,7 @@ events AS (
     evt_block_time AS time,
     model,
     1 AS delta
-  FROM arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted
+  FROM arbius_arbitrum.engine_evt_tasksubmitted
   CROSS JOIN params p
   WHERE evt_block_time >= p.start_time AND evt_block_time <= p.end_time
   UNION ALL
@@ -51,8 +51,8 @@ events AS (
     s.evt_block_time AS time,
     t.model,
     -1 AS delta
-  FROM arbius_arbitrum.v2_enginev5_1_evt_solutionsubmitted s
-  JOIN arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t ON s.task = t.id
+  FROM arbius_arbitrum.engine_evt_solutionsubmitted s
+  JOIN arbius_arbitrum.engine_evt_tasksubmitted t ON s.task = t.id
   CROSS JOIN params p
   WHERE s.evt_block_time >= p.start_time AND s.evt_block_time <= p.end_time
 ),

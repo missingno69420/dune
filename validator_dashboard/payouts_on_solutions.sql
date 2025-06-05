@@ -27,7 +27,7 @@ solutions AS (
   SELECT
     task AS task_id,
     evt_block_time AS claim_time
-  FROM arbius_arbitrum.v2_enginev5_1_evt_solutionclaimed
+  FROM arbius_arbitrum.engine_evt_solutionclaimed
   WHERE evt_block_time >= (SELECT start_time FROM params)
     AND evt_block_time <= (SELECT end_time FROM params)
 ),
@@ -55,7 +55,7 @@ total_payouts AS (
   FROM solutions s
   LEFT JOIN payouts p ON s.task_id = p.task_id
   LEFT JOIN incentives i ON s.task_id = i.task_id
-  JOIN arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t ON s.task_id = t.id
+  JOIN arbius_arbitrum.engine_evt_tasksubmitted t ON s.task_id = t.id
 ),
 payout_intervals AS (
   SELECT

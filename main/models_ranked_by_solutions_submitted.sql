@@ -1,12 +1,12 @@
 -- https://dune.com/queries/5203680
 WITH models AS (
   SELECT id AS model
-  FROM arbius_arbitrum.v2_enginev5_1_evt_modelregistered
+  FROM arbius_arbitrum.engine_evt_modelregistered
 ),
 solution_counts AS (
   SELECT t.model, COUNT(*) as solution_count
-  FROM arbius_arbitrum.v2_enginev5_1_evt_solutionsubmitted s
-  JOIN arbius_arbitrum.v2_enginev5_1_evt_tasksubmitted t ON s.task = t.id
+  FROM arbius_arbitrum.engine_evt_solutionsubmitted s
+  JOIN arbius_arbitrum.engine_evt_tasksubmitted t ON s.task = t.id
   GROUP BY t.model
 )
 SELECT
