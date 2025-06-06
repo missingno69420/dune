@@ -1,69 +1,72 @@
 -- https://dune.com/queries/5247068
 WITH task_fees AS (
   SELECT
-    CAST(topic1 AS VARCHAR) AS task_id,
-    bytea2numeric(data) AS fee
-  FROM nova.logs
-  WHERE topic0 = 0xc3d3e0544c80e3bb83f62659259ae1574f72a91515ab3cae3dd75cf77e1b0aea -- keccak256(TaskSubmitted(bytes32,bytes32,uint256,address))
-    AND contract_address = 0x3bf6050327fa280ee1b5f3e8fd5ea2efe8a6472a -- Replace with engine_address
+    id AS task_id,
+    fee
+  FROM arbius_nova.engine_nova_obselete_evt_TaskSubmitted
 ),
 solution_submitted AS (
   SELECT
-    CAST(topic2 AS VARCHAR) AS task_id,
-    CAST(topic1 AS VARCHAR) AS validator
-  FROM nova.logs
-  WHERE topic0 = 0x957c18b5af8413899ea8a576a4d3fb16839a02c9fccfdce098b6d59ef248525b -- keccak256(SolutionSubmitted(address,bytes32))
-    AND contract_address = 0x3bf6050327fa280ee1b5f3e8fd5ea2efe8a6472a -- Replace with engine_address
+    task AS task_id,
+    validator
+  FROM arbius_nova.engine_nova_obselete_evt_SolutionSubmitted
 ),
-all_events AS (
-  SELECT
-    tx_hash,
-    index,
-    block_time,
-    'SolutionClaimed' AS event_type,
-    CAST(topic1 AS VARCHAR) AS validator,
-    CAST(topic2 AS VARCHAR) AS task_id,
-    NULL AS start_idx,
-    NULL AS end_idx,
-    NULL AS "from",
-    NULL AS "to",
-    NULL AS value
-  FROM nova.logs
-  WHERE topic0 = 0x0b76b4ae356796814d36b46f7c500bbd27b2cce1e6059a6fa2bebfd5a389b190 -- keccak256(SolutionClaimed(address,bytes32))
-    AND contract_address = 0x3bf6050327fa280ee1b5f3e8fd5ea2efe8a6472a -- Replace with engine_address
-  UNION ALL
-  SELECT
-    tx_hash,
-    index,
-    block_time,
-    'ContestationVoteFinish' AS event_type,
-    NULL AS validator,
-    CAST(topic1 AS VARCHAR) AS task_id,
-    bytea2numeric(topic2) AS start_idx,
-    bytea2numeric(data) AS end_idx,
-    NULL AS "from",
-    NULL AS "to",
-    NULL AS value
-  FROM nova.logs
-  WHERE topic0 = 0x71d8c71303e35a39162e33a402c9897bf9848388537bac7d5e1b0d202eca4e66 -- keccak256(ContestationVoteFinish(bytes32,uint32,uint32))
-    AND contract_address = 0x3bf6050327fa280ee1b5f3e8fd5ea2efe8a6472a -- Replace with engine_address
-  UNION ALL
+transfer_events AS (
   SELECT
     tx_hash,
     index,
     block_time,
     'Transfer' AS event_type,
+    topic1 AS "from",
+    topic2 AS "to",
+    varbinary_to_uint256(data) AS value
+  FROM nova.logs
+  WHERE topic0 = 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef -- Transfer event signature
+    AND contract_address = 0x8AFE4055Ebc86Bd2AFB3940c0095C9aca511d852 -- Replace with base_token_address
+    AND topic1 = 0x3bf6050327fa280ee1b5f3e8fd5ea2efe8a6472a -- Engine address
+),
+all_events AS (
+  SELECT
+    evt_tx_hash AS tx_hash,
+    evt_index AS index,
+    evt_block_time AS block_time,
+    'SolutionClaimed' AS event_type,
+    validator,
+    task AS task_id,
+    NULL AS start_idx,
+    NULL AS end_idx,
+    NULL AS "from",
+    NULL AS "to",
+    NULL AS value
+  FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
+  UNION ALL
+  SELECT
+    evt_tx_hash AS tx_hash,
+    evt_index AS index,
+    evt_block_time AS block_time,
+    'ContestationVoteFinish' AS event_type,
+    NULL AS validator,
+    id AS task_id,
+    start_idx,
+    end_idx,
+    NULL AS "from",
+    NULL AS "to",
+    NULL AS value
+  FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
+  UNION ALL
+  SELECT
+    tx_hash,
+    index,
+    block_time,
+    event_type,
     NULL AS validator,
     NULL AS task_id,
     NULL AS start_idx,
     NULL AS end_idx,
-    CAST(topic1 AS VARCHAR) AS "from",
-    CAST(topic2 AS VARCHAR) AS "to",
-    bytea2numeric(data) AS value
-  FROM nova.logs
-  WHERE topic0 = 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef -- keccak256(Transfer(address,address,uint256))
-    AND contract_address = 0x3bf6050327fa280ee1b5f3e8fd5ea2efe8a6472a -- Replace with base_token_address
-    AND topic1 = 0x3bf6050327fa280ee1b5f3e8fd5ea2efe8a6472a -- Replace with engine_address
+    "from",
+    "to",
+    value
+  FROM transfer_events
 ),
 events_with_group AS (
   SELECT
@@ -105,10 +108,7 @@ groups_with_refund AS (
   SELECT
     tx_hash,
     group_id,
-    MAX(CASE WHEN event_type = 'Transfer' AND value = task_fee
-             AND from_hex(substring("to", 3)) != from_hex(substring(validator_for_group, 3))
-             AND from_hex(substring("to", 3)) != 0x1298F8A91B046D7FCBD5454CD3331BA6F4FEA168
-             THEN 1 ELSE 0 END) AS has_refund
+    MAX(CASE WHEN event_type = 'Transfer' AND value = task_fee AND "to" != validator_for_group AND "to" != 0x1298F8A91B046d7fCBd5454cd3331Ba6f4feA168 THEN 1 ELSE 0 END) AS has_refund
   FROM events_with_task_fee
   WHERE group_type = 'ContestationVoteFinish'
   GROUP BY tx_hash, group_id
@@ -135,7 +135,7 @@ reward_transfers AS (
   FROM transfer_with_next t
   LEFT JOIN groups_with_refund r ON t.tx_hash = r.tx_hash AND t.group_id = r.group_id
   WHERE t."to" = t.validator_for_group
-    AND from_hex(substring(t.next_to, 3)) = 0x1298F8A91B046D7FCBD5454CD3331BA6F4FEA168 -- Replace with treasury_address
+    AND t.next_to = 0x1298F8A91B046d7fCBd5454cd3331Ba6f4feA168  -- Treasury address
     AND (
       (t.group_type = 'SolutionClaimed')
       OR (t.group_type = 'ContestationVoteFinish' AND t.group_start_idx = 0 AND (r.has_refund IS NULL OR r.has_refund = 0))
