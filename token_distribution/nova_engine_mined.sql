@@ -1,12 +1,25 @@
 -- https://dune.com/queries/5247068
+-- rough query that assumes every transfer in a transaction with a solution claimed or contestation vote finish event is a reward transfer
 WITH date_series AS (
     SELECT
         CAST(date AS DATE) AS reward_date
     FROM (
         SELECT
             sequence(
-                (SELECT CAST(MIN(DATE_TRUNC('day', block_time)) AS date) FROM nova.logs WHERE block_time IS NOT NULL),
-                (SELECT CAST(MAX(DATE_TRUNC('day', block_time)) AS date) FROM nova.logs WHERE block_time IS NOT NULL),
+                (SELECT CAST(MIN(DATE_TRUNC('day', evt_block_time)) AS date)
+                 FROM (
+                     SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
+                     UNION
+                     SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
+                 ) AS reward_events
+                ),
+                (SELECT CAST(MAX(DATE_TRUNC('day', evt_block_time)) AS date)
+                 FROM (
+                     SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
+                     UNION
+                     SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
+                 ) AS reward_events
+                ),
                 interval '1' day
             ) AS date_array
     ) AS t
@@ -51,8 +64,8 @@ daily_rewards AS (
 )
 SELECT
     ds.reward_date,
-    COALESCE(dr.daily_rewards, 0) / 1000000000000000000 AS daily_rewards,  -- Divide by 1e18
-    SUM(COALESCE(dr.daily_rewards, 0)) OVER (ORDER BY ds.reward_date) / 1000000000000000000 AS cumulative_rewards  -- Divide by 1e18
+    CAST(COALESCE(dr.daily_rewards, 0) AS DOUBLE) / 1e18 AS daily_rewards,
+    CAST(SUM(COALESCE(dr.daily_rewards, 0)) OVER (ORDER BY ds.reward_date) AS DOUBLE) / 1e18 AS cumulative_rewards
 FROM date_series ds
 LEFT JOIN daily_rewards dr ON ds.reward_date = dr.reward_date
 ORDER BY ds.reward_date;
