@@ -63,9 +63,9 @@ daily_rewards AS (
     GROUP BY DATE_TRUNC('day', block_time)
 )
 SELECT
-    ds.reward_date,
+    ds.reward_date as day,
     CAST(COALESCE(dr.daily_rewards, 0) AS DOUBLE) / 1e18 AS daily_rewards,
-    CAST(SUM(COALESCE(dr.daily_rewards, 0)) OVER (ORDER BY ds.reward_date) AS DOUBLE) / 1e18 AS cumulative_rewards
+    CAST(SUM(COALESCE(dr.daily_rewards, 0)) OVER (ORDER BY ds.reward_date) AS DOUBLE) / 1e18 AS cumulative_amount
 FROM date_series ds
 LEFT JOIN daily_rewards dr ON ds.reward_date = dr.reward_date
 ORDER BY ds.reward_date;
