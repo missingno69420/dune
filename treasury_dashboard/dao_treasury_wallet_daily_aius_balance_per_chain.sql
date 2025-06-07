@@ -55,6 +55,34 @@ deployer_ethereum_transfers AS (
   WHERE t.contract_address = 0x8AFE4055Ebc86Bd2AFB3940c0095C9aca511d852
     AND (t."from" = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168 OR t."to" = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168)
 ),
+deployer_arbitrum_one_transfers AS (
+  SELECT
+    'Arbitrum One' AS chain,
+    'deployer' AS wallet_type,
+    t.evt_block_time AS block_time,
+    0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168 AS wallet,
+    CASE
+      WHEN t."from" = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168 THEN -CAST(t.value AS DOUBLE)
+      WHEN t."to" = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168 THEN CAST(t.value AS DOUBLE)
+    END AS net_change
+  FROM erc20_arbitrum.evt_transfer t
+  WHERE t.contract_address = 0x4a24B101728e07A52053c13FB4dB2BcF490CAbc3
+    AND (t."from" = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168 OR t."to" = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168)
+),
+deployer_nova_transfers AS (
+  SELECT
+    'Arbitrum Nova' AS chain,
+    'deployer' AS wallet_type,
+    t.evt_block_time AS block_time,
+    0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168 AS wallet,
+    CASE
+      WHEN t."from" = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168 THEN -CAST(t.value AS DOUBLE)
+      WHEN t."to" = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168 THEN CAST(t.value AS DOUBLE)
+    END AS net_change
+  FROM erc20_nova.evt_transfer t
+  WHERE t.contract_address = 0x8AFE4055Ebc86Bd2AFB3940c0095C9aca511d852
+    AND (t."from" = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168 OR t."to" = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168)
+),
 all_transfers AS (
   SELECT * FROM treasury_arbitrum_transfers
   UNION ALL
@@ -63,6 +91,10 @@ all_transfers AS (
   SELECT * FROM treasury_nova_transfers
   UNION ALL
   SELECT * FROM deployer_ethereum_transfers
+  UNION ALL
+  SELECT * FROM deployer_arbitrum_one_transfers
+  UNION ALL
+  SELECT * FROM deployer_nova_transfers
 ),
 daily_net_changes AS (
   SELECT
