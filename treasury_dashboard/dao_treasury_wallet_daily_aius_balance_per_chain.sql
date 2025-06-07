@@ -1,40 +1,49 @@
 -- https://dune.com/queries/5247223/
-WITH current_treasury AS (
-  SELECT treasury_wallet
-  FROM query_5216830
-),
-arbitrum_transfers AS (
+WITH arbitrum_transfers AS (
   SELECT
     'Arbitrum' AS chain,
     t.evt_block_time AS block_time,
-    ct.treasury_wallet AS wallet,
+    0xF20D0ebD8223DfF22cFAf05F0549021525015577 AS wallet,
     CASE
-      WHEN t."from" = ct.treasury_wallet THEN -CAST(t.value AS DOUBLE)
-      WHEN t."to" = ct.treasury_wallet THEN CAST(t.value AS DOUBLE)
+      WHEN t."from" = 0xF20D0ebD8223DfF22cFAf05F0549021525015577 THEN -CAST(t.value AS DOUBLE)
+      WHEN t."to" = 0xF20D0ebD8223DfF22cFAf05F0549021525015577 THEN CAST(t.value AS DOUBLE)
     END AS net_change
   FROM erc20_arbitrum.evt_transfer t
-  CROSS JOIN current_treasury ct
   WHERE t.contract_address = 0x4a24B101728e07A52053c13FB4dB2BcF490CAbc3
-    AND (t."from" = ct.treasury_wallet OR t."to" = ct.treasury_wallet)
+    AND (t."from" = 0xF20D0ebD8223DfF22cFAf05F0549021525015577 OR t."to" = 0xF20D0ebD8223DfF22cFAf05F0549021525015577)
 ),
 ethereum_transfers AS (
   SELECT
     'Ethereum' AS chain,
     t.evt_block_time AS block_time,
-    ct.treasury_wallet AS wallet,
+    0xF20D0ebD8223DfF22cFAf05F0549021525015577 AS wallet,
     CASE
-      WHEN t."from" = ct.treasury_wallet THEN -CAST(t.value AS DOUBLE)
-      WHEN t."to" = ct.treasury_wallet THEN CAST(t.value AS DOUBLE)
+      WHEN t."from" = 0xF20D0ebD8223DfF22cFAf05F0549021525015577 THEN -CAST(t.value AS DOUBLE)
+      WHEN t."to" = 0xF20D0ebD8223DfF22cFAf05F0549021525015577 THEN CAST(t.value AS DOUBLE)
     END AS net_change
   FROM erc20_ethereum.evt_transfer t
-  CROSS JOIN current_treasury ct
   WHERE t.contract_address = 0x8AFE4055Ebc86Bd2AFB3940c0095C9aca511d852
-    AND (t."from" = ct.treasury_wallet OR t."to" = ct.treasury_wallet)
+    AND (t."from" = 0xF20D0ebD8223DfF22cFAf05F0549021525015577 OR t."to" = 0xF20D0ebD8223DfF22cFAf05F0549021525015577)
+),
+nova_transfers AS (
+  SELECT
+    'Arbitrum Nova' AS chain,
+    t.evt_block_time AS block_time,
+    0x1298F8A91B046d7fCBd5454cd3331Ba6f4feA168 AS wallet,
+    CASE
+      WHEN t."from" = 0x1298F8A91B046d7fCBd5454cd3331Ba6f4feA168 THEN -CAST(t.value AS DOUBLE)
+      WHEN t."to" = 0x1298F8A91B046d7fCBd5454cd3331Ba6f4feA168 THEN CAST(t.value AS DOUBLE)
+    END AS net_change
+  FROM erc20_nova.evt_transfer t
+  WHERE t.contract_address = 0x8AFE4055Ebc86Bd2AFB3940c0095C9aca511d852
+    AND (t."from" = 0x1298F8A91B046d7fCBd5454cd3331Ba6f4feA168 OR t."to" = 0x1298F8A91B046d7fCBd5454cd3331Ba6f4feA168)
 ),
 all_transfers AS (
   SELECT * FROM arbitrum_transfers
   UNION ALL
   SELECT * FROM ethereum_transfers
+  UNION ALL
+  SELECT * FROM nova_transfers
 ),
 daily_net_changes AS (
   SELECT
