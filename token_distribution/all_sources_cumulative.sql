@@ -10,14 +10,23 @@ WITH all_rewards AS (
     SELECT day, cumulative_amount, 'Nova Engine Rewards' AS source
     FROM query_5247068
     UNION All
-    SELECT day, cumulative_treasury_rewards_tokens as cumulative_amount, 'Rewards Paid to Treasury' AS source
+    SELECT day, cumulative_treasury_rewards_tokens as cumulative_amount, 'Rewards Paid to Treasury - (Arbitrum One)' AS source
     FROM query_5168325
     UNION All
-    SELECT day, cumulative_task_owner_rewards_tokens as cumulative_amount, 'Rewards Paid to Task Owners' AS source
+    SELECT day, cumulative_task_owner_rewards_tokens as cumulative_amount, 'Rewards Paid to Task Owners (Arbitrum One)' AS source
     FROM query_5168325
     UNION All
-    SELECT day, cumulative_validator_rewards_tokens as cumulative_amount, 'Rewards Paid to Validators' AS source
+    SELECT day, cumulative_validator_rewards_tokens as cumulative_amount, 'Rewards Paid to Validators (Arbitrum One)' AS source
     FROM query_5168325
+    UNION ALL
+    SELECT day, cumulative_treasury_rewards as cumulative_amount, 'Rewards Paid to Treasury (Nova)' AS source
+    from query_5256172
+    UNION All
+    SELECT day, cumulative_validator_rewards as cumulative_amount, 'Rewards Paid to Validators (Nova)' AS source
+    from query_5256172
+    UNION All
+    SELECT day, cumulative_task_owner_rewards as cumulative_amount, 'Rewards Paid to Task Owners (Nova)' AS source
+    from query_5256172
     UNION All
     SELECT
         date_trunc('day', evt_block_time) AS day,
