@@ -7,6 +7,18 @@ WITH all_rewards AS (
     SELECT day, cumulative_amount, 'V2 Gysr Rewards' AS source
     FROM query_5245991
     UNION ALL
+    SELECT day, cumulative_amount, 'Nova Engine Rewards' AS source
+    FROM query_5247068
+    UNION All
+    SELECT day, cumulative_treasury_rewards_tokens as cumulative_amount, 'Rewards Paid to Treasury' AS source
+    FROM query_5168325
+    UNION All
+    SELECT day, cumulative_task_owner_rewards_tokens as cumulative_amount, 'Rewards Paid to Task Owners' AS source
+    FROM query_5168325
+    UNION All
+    SELECT day, cumulative_validator_rewards_tokens as cumulative_amount, 'Rewards Paid to Validators' AS source
+    FROM query_5168325
+    UNION All
     SELECT
         date_trunc('day', evt_block_time) AS day,
         value / 1e18 AS cumulative_amount,
