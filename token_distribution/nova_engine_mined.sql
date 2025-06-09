@@ -1,11 +1,10 @@
 -- https://dune.com/queries/5256172/
--- NOTE: For best performance, set your date range below to match your actual data range
 WITH date_series AS (
     SELECT CAST(date_value AS DATE) AS reward_date
     FROM UNNEST(
         sequence(
             CAST('2024-02-22' AS DATE),
-            CAST('2024-06-12' AS DATE),
+            CAST('2024-08-05' AS DATE),
             INTERVAL '1' DAY
         )
     ) AS t(date_value)
@@ -21,7 +20,7 @@ transfers AS (
     WHERE contract_address = 0x8afe4055ebc86bd2afb3940c0095c9aca511d852
       AND "from" = 0x3BF6050327Fa280Ee1B5F3e8Fd5EA2EfE8A6472a
       AND evt_block_time >= CAST('2024-02-22' AS TIMESTAMP)
-      AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
+      AND evt_block_time < CAST('2024-08-06' AS TIMESTAMP)
 ),
 task_details AS (
     SELECT
@@ -41,7 +40,7 @@ events AS (
         task AS task_id
     FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
     WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP)
-      AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
+      AND evt_block_time < CAST('2024-08-06' AS TIMESTAMP)
     UNION ALL
     SELECT
         evt_tx_hash AS tx_hash,
@@ -51,7 +50,7 @@ events AS (
     FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
     WHERE start_idx = 0
       AND evt_block_time >= CAST('2024-02-22' AS TIMESTAMP)
-      AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
+      AND evt_block_time < CAST('2024-08-06' AS TIMESTAMP)
 ),
 events_with_bounds AS (
     SELECT
@@ -111,7 +110,7 @@ refund_flags AS (
     SELECT
         tx_hash,
         event_log_index,
-        MAX(CASE WHEN transfer_to = task_owner AND transfer_value = task_fee THEN 1 ELSE 0 END) AS has_refund
+        MAX(CASE WHEN transfer_value = task_fee THEN 1 ELSE 0 END) AS has_refund
     FROM transfer_assignments_with_window
     WHERE event_type = 'ContestationVoteFinish'
     GROUP BY tx_hash, event_log_index
