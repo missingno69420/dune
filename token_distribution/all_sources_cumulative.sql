@@ -1,21 +1,19 @@
 -- https://dune.com/queries/5247542/
 -- Combine data from V1, V2 rewards, and the initial liquidity transfer
-WITH all_rewards AS (
-    SELECT day, cumulative_amount, 'V1 Gysr Rewards' AS source
-    FROM query_5245571
+WITH date_series AS (
+    SELECT day
+    FROM UNNEST(sequence(
+        CAST('2024-02-14' AS date),
+        CAST(NOW() AS date)
+    )) AS t(day)
+),
+all_rewards AS (
+    SELECT day, cumulative_amount, 'V1 Gysr Rewards' AS source FROM query_5245571
     UNION ALL
-    SELECT day, cumulative_amount, 'V2 Gysr Rewards' AS source
-    FROM query_5245991
+    SELECT day, cumulative_amount, 'V2 Gysr Rewards' AS source FROM query_5245991
     UNION ALL
-    -- Combine Arbitrum One rewards into a single SELECT with UNNEST
-    SELECT day, cumulative_amount, source
-    FROM (
-        SELECT
-            day,
-            cumulative_treasury_rewards_tokens,
-            cumulative_task_owner_rewards_tokens,
-            cumulative_validator_rewards_tokens
-        FROM query_5168325
+    SELECT day, cumulative_amount, source FROM (
+        SELECT day, cumulative_treasury_rewards_tokens, cumulative_task_owner_rewards_tokens, cumulative_validator_rewards_tokens FROM query_5168325
     ) t
     CROSS JOIN UNNEST(
         ARRAY[
@@ -23,17 +21,10 @@ WITH all_rewards AS (
             ROW('Rewards Paid to Task Owners (Arbitrum One)', t.cumulative_task_owner_rewards_tokens),
             ROW('Rewards Paid to Validators (Arbitrum One)', t.cumulative_validator_rewards_tokens)
         ]
-    ) AS u (source, cumulative_amount)
+    ) AS t (source, cumulative_amount)
     UNION ALL
-    -- Combine Nova rewards into a single SELECT with UNNEST
-    SELECT day, cumulative_amount, source
-    FROM (
-        SELECT
-            day,
-            cumulative_treasury_rewards,
-            cumulative_validator_rewards,
-            cumulative_task_owner_rewards
-        FROM query_5256172
+    SELECT day, cumulative_amount, source FROM (
+        SELECT day, cumulative_treasury_rewards, cumulative_validator_rewards, cumulative_task_owner_rewards FROM query_5256172
     ) t
     CROSS JOIN UNNEST(
         ARRAY[
@@ -41,55 +32,33 @@ WITH all_rewards AS (
             ROW('Rewards Paid to Validators (Nova)', t.cumulative_validator_rewards),
             ROW('Rewards Paid to Task Owners (Nova)', t.cumulative_task_owner_rewards)
         ]
-    ) AS u (source, cumulative_amount)
+    ) AS t (source, cumulative_amount)
     UNION ALL
-    SELECT
-        date_trunc('day', evt_block_time) AS day,
-        value / 1e18 AS cumulative_amount,
-        'Initial Dex Liquidity' AS source
+    SELECT date_trunc('day', evt_block_time) AS day, value / 1e18 AS cumulative_amount, 'Initial Dex Liquidity' AS source
     FROM erc20_ethereum.evt_transfer
     WHERE contract_address = 0xe3DBC4F88EAa632DDF9708732E2832EEaA6688AB
       AND evt_tx_hash = 0xd2842d9e23b8452d4b43b4b112b826e23e60282ac72830eb7562fb51f60c27af
       AND evt_index = 1
 ),
--- Find the earliest day across all sources, including the transfer event
-min_day AS (
-    SELECT MIN(day) AS first_day
-    FROM all_rewards
+all_sources AS (
+    SELECT DISTINCT source FROM all_rewards
 ),
--- Generate a daily time series from the first day to today
-date_series AS (
-    SELECT time AS day
-    FROM (
-        SELECT sequence(
-            CAST((SELECT first_day FROM min_day) AS DATE),
-            CAST(date_trunc('day', NOW()) AS DATE),
-            INTERVAL '1' DAY
-        ) AS date_array
-    ) ts
-    CROSS JOIN UNNEST(date_array) AS t(time)
-),
--- Create all day-source combinations
-date_source AS (
-    SELECT d.day, s.source
-    FROM date_series d
-    CROSS JOIN (SELECT DISTINCT source FROM all_rewards) s
-),
--- Find the latest day per day-source pair
-latest_rewards AS (
+-- For each source, join to the date series and pull forward the last known value
+final_rewards AS (
     SELECT
-        ds.day,
-        ds.source,
-        MAX(ar.day) AS latest_day
-    FROM date_source ds
-    LEFT JOIN all_rewards ar ON ar.source = ds.source AND ar.day <= ds.day
-    GROUP BY ds.day, ds.source
+        d.day,
+        s.source,
+        MAX_BY(r.cumulative_amount, CASE WHEN r.cumulative_amount IS NOT NULL THEN r.day ELSE NULL END) OVER (
+            PARTITION BY s.source ORDER BY d.day
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS cumulative_amount
+    FROM date_series d
+    CROSS JOIN all_sources s
+    LEFT JOIN all_rewards r ON r.source = s.source AND r.day = d.day
 )
--- Retrieve the cumulative_amount for the latest day
 SELECT
-    lr.day,
-    lr.source,
-    COALESCE(ar.cumulative_amount, 0) AS cumulative_amount
-FROM latest_rewards lr
-LEFT JOIN all_rewards ar ON ar.source = lr.source AND ar.day = lr.latest_day
-ORDER BY lr.day DESC, lr.source;
+    day,
+    source,
+    COALESCE(cumulative_amount, 0) AS cumulative_amount
+FROM final_rewards
+ORDER BY day DESC, source;
