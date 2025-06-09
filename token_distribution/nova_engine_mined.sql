@@ -110,7 +110,7 @@ refund_flags AS (
     SELECT
         tx_hash,
         event_log_index,
-        MAX(CASE WHEN transfer_value = task_fee THEN 1 ELSE 0 END) AS has_refund
+        MAX(CASE WHEN transfer_to = task_owner AND transfer_value = task_fee THEN 1 ELSE 0 END) AS has_refund
     FROM transfer_assignments_with_window
     WHERE event_type = 'ContestationVoteFinish'
     GROUP BY tx_hash, event_log_index
