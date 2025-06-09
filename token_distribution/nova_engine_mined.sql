@@ -1,33 +1,35 @@
 -- https://dune.com/queries/5247068
+-- NOTE: For best performance, set your date range below to match your actual data range
 WITH date_series AS (
-    SELECT
-        CAST(date AS DATE) AS reward_date
-    FROM (
-        SELECT
-            sequence(
-                (SELECT CAST(MIN(DATE_TRUNC('day', evt_block_time)) AS date)
-                 FROM (
-                     SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
-                     UNION
-                     SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
-                 ) AS reward_events
-                ),
-                (SELECT CAST(MAX(DATE_TRUNC('day', evt_block_time)) AS date)
-                 FROM (
-                     SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
-                     UNION
-                     SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
-                 ) AS reward_events
-                ),
-                interval '1' day
-            ) AS date_array
-    ) AS t
-    CROSS JOIN UNNEST(date_array) AS t(date)
+    SELECT CAST(date_value AS DATE) AS reward_date
+    FROM UNNEST(
+        sequence(
+            CAST((SELECT MIN(DATE_TRUNC('day', evt_block_time))
+                  FROM (
+                      SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
+                      WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
+                      UNION
+                      SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
+                      WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
+                  )
+            ) AS DATE),
+            CAST((SELECT MAX(DATE_TRUNC('day', evt_block_time))
+                  FROM (
+                      SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
+                      WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
+                      UNION
+                      SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
+                      WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
+                  )
+            ) AS DATE),
+            INTERVAL '1' DAY
+        )
+    ) AS t(date_value)
 ),
 transfer_events AS (
     SELECT
         evt_tx_hash AS tx_hash,
-        evt_index AS index,
+        evt_index AS "index",
         evt_block_time AS block_time,
         "from",
         "to",
@@ -35,6 +37,7 @@ transfer_events AS (
     FROM erc20_nova.evt_transfer
     WHERE contract_address = 0x8afe4055ebc86bd2afb3940c0095c9aca511d852
       AND "from" = 0x3BF6050327Fa280Ee1B5F3e8Fd5EA2EfE8A6472a
+      AND evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
 ),
 task_details AS (
     SELECT
@@ -45,20 +48,29 @@ task_details AS (
     LEFT JOIN arbius_nova.engine_nova_obselete_evt_SolutionSubmitted s ON t.id = s.task
 ),
 all_events AS (
-    SELECT 'SolutionClaimed' AS event_type, evt_tx_hash AS tx_hash, evt_index AS index, evt_block_time AS block_time, addr AS validator, task AS task_id, NULL AS "from", NULL AS "to", NULL AS value
+    SELECT 'SolutionClaimed' AS event_type, evt_tx_hash AS tx_hash, evt_index AS "index", evt_block_time AS block_time, addr AS validator, task AS task_id, NULL AS "from", NULL AS "to", NULL AS value
     FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
+    WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
     UNION ALL
-    SELECT 'ContestationVoteFinish' AS event_type, evt_tx_hash AS tx_hash, evt_index AS index, evt_block_time AS block_time, NULL AS validator, id AS task_id, NULL AS "from", NULL AS "to", NULL AS value
+    SELECT 'ContestationVoteFinish' AS event_type, evt_tx_hash AS tx_hash, evt_index AS "index", evt_block_time AS block_time, NULL AS validator, id AS task_id, NULL AS "from", NULL AS "to", NULL AS value
     FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
-    WHERE start_idx = 0
+    WHERE start_idx = 0 AND evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
     UNION ALL
-    SELECT 'Transfer' AS event_type, tx_hash, index, block_time, NULL AS validator, NULL AS task_id, "from", "to", value
+    SELECT 'Transfer' AS event_type, tx_hash, "index", block_time, NULL AS validator, NULL AS task_id, "from", "to", value
     FROM transfer_events
 ),
 events_with_group AS (
     SELECT
-        *,
-        SUM(CASE WHEN event_type IN ('SolutionClaimed', 'ContestationVoteFinish') THEN 1 ELSE 0 END) OVER (PARTITION BY tx_hash ORDER BY index) AS group_id
+        event_type,
+        tx_hash,
+        "index",
+        block_time,
+        validator,
+        task_id,
+        "from",
+        "to",
+        value,
+        SUM(CASE WHEN event_type IN ('SolutionClaimed', 'ContestationVoteFinish') THEN 1 ELSE 0 END) OVER (PARTITION BY tx_hash ORDER BY "index") AS group_id
     FROM all_events
 ),
 group_info AS (
@@ -77,12 +89,12 @@ transfer_groups AS (
     SELECT
         e.tx_hash,
         e.group_id,
-        e.index,
-        e.block_time AS block_time,  -- Added to resolve the error
+        e."index",
+        e.block_time,
         e."from",
         e."to",
         e.value,
-        LEAD(e."to") OVER (PARTITION BY e.tx_hash, e.group_id ORDER BY e.index) AS next_to,
+        LEAD(e."to") OVER (PARTITION BY e.tx_hash, e.group_id ORDER BY e."index") AS next_to,
         COALESCE(g.solution_validator, td.validator) AS validator,
         td.task_fee,
         g.is_solution_claimed,
@@ -104,7 +116,7 @@ refund_check AS (
 reward_transfers AS (
     SELECT
         t.tx_hash,
-        t.index,
+        t."index",
         t.block_time,
         t.value
     FROM transfer_groups t
@@ -120,7 +132,6 @@ daily_rewards AS (
     FROM reward_transfers
     GROUP BY DATE_TRUNC('day', block_time)
 )
---SELECT COUNT(*) FROM transfer_events;
 SELECT
     ds.reward_date AS day,
     CAST(COALESCE(dr.daily_rewards, 0) AS DOUBLE) / 1e18 AS daily_rewards,
