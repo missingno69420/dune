@@ -20,9 +20,9 @@ cumulative_sums AS (
 )
 SELECT
     day,
-    COALESCE(cumulative_treasury, 0) / 1e18 AS cumulative_treasury_emission_tokens,
-    COALESCE(cumulative_task_owner, 0) / 1e18 AS cumulative_task_owner_emission_tokens,
-    COALESCE(cumulative_validator, 0) / 1e18 AS cumulative_validator_emission_tokens,
-    COALESCE(cumulative_veaius, 0) / 1e18 AS cumulative_veaius_emission_tokens
+    COALESCE(cumulative_treasury, 0) / 1e18 AS cumulative_treasury_rewards_tokens,
+    COALESCE(cumulative_task_owner, 0) / 1e18 AS cumulative_task_owner_rewards_tokens,
+    COALESCE(cumulative_validator, 0) / 1e18 AS cumulative_validator_rewards_tokens,
+    COALESCE(cumulative_veaius, 0) / 1e18 AS cumulative_veaius_rewards_tokens
 FROM cumulative_sums
 ORDER BY day;
