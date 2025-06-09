@@ -7,27 +7,42 @@ WITH all_rewards AS (
     SELECT day, cumulative_amount, 'V2 Gysr Rewards' AS source
     FROM query_5245991
     UNION ALL
-    SELECT day, cumulative_amount, 'Nova Engine Rewards' AS source
-    FROM query_5247068
-    UNION All
-    SELECT day, cumulative_treasury_rewards_tokens as cumulative_amount, 'Rewards Paid to Treasury - (Arbitrum One)' AS source
-    FROM query_5168325
-    UNION All
-    SELECT day, cumulative_task_owner_rewards_tokens as cumulative_amount, 'Rewards Paid to Task Owners (Arbitrum One)' AS source
-    FROM query_5168325
-    UNION All
-    SELECT day, cumulative_validator_rewards_tokens as cumulative_amount, 'Rewards Paid to Validators (Arbitrum One)' AS source
-    FROM query_5168325
+    -- Combine Arbitrum One rewards into a single SELECT with UNNEST
+    SELECT day, cumulative_amount, source
+    FROM (
+        SELECT
+            day,
+            cumulative_treasury_rewards_tokens,
+            cumulative_task_owner_rewards_tokens,
+            cumulative_validator_rewards_tokens
+        FROM query_5168325
+    ) t
+    CROSS JOIN UNNEST(
+        ARRAY[
+            ROW('Rewards Paid to Treasury - (Arbitrum One)', t.cumulative_treasury_rewards_tokens),
+            ROW('Rewards Paid to Task Owners (Arbitrum One)', t.cumulative_task_owner_rewards_tokens),
+            ROW('Rewards Paid to Validators (Arbitrum One)', t.cumulative_validator_rewards_tokens)
+        ]
+    ) AS u (source, cumulative_amount)
     UNION ALL
-    SELECT day, cumulative_treasury_rewards as cumulative_amount, 'Rewards Paid to Treasury (Nova)' AS source
-    from query_5256172
-    UNION All
-    SELECT day, cumulative_validator_rewards as cumulative_amount, 'Rewards Paid to Validators (Nova)' AS source
-    from query_5256172
-    UNION All
-    SELECT day, cumulative_task_owner_rewards as cumulative_amount, 'Rewards Paid to Task Owners (Nova)' AS source
-    from query_5256172
-    UNION All
+    -- Combine Nova rewards into a single SELECT with UNNEST
+    SELECT day, cumulative_amount, source
+    FROM (
+        SELECT
+            day,
+            cumulative_treasury_rewards,
+            cumulative_validator_rewards,
+            cumulative_task_owner_rewards
+        FROM query_5256172
+    ) t
+    CROSS JOIN UNNEST(
+        ARRAY[
+            ROW('Rewards Paid to Treasury (Nova)', t.cumulative_treasury_rewards),
+            ROW('Rewards Paid to Validators (Nova)', t.cumulative_validator_rewards),
+            ROW('Rewards Paid to Task Owners (Nova)', t.cumulative_task_owner_rewards)
+        ]
+    ) AS u (source, cumulative_amount)
+    UNION ALL
     SELECT
         date_trunc('day', evt_block_time) AS day,
         value / 1e18 AS cumulative_amount,
