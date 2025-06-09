@@ -1,4 +1,4 @@
--- https://dune.com/queries/5247068
+-- https://dune.com/queries/5256172/
 -- NOTE: For best performance, set your date range below to match your actual data range
 WITH date_series AS (
     SELECT CAST(date_value AS DATE) AS reward_date
