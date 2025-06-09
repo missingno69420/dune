@@ -4,138 +4,176 @@ WITH date_series AS (
     SELECT CAST(date_value AS DATE) AS reward_date
     FROM UNNEST(
         sequence(
-            CAST((SELECT MIN(DATE_TRUNC('day', evt_block_time))
-                  FROM (
-                      SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
-                      WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
-                      UNION
-                      SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
-                      WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
-                  )
-            ) AS DATE),
-            CAST((SELECT MAX(DATE_TRUNC('day', evt_block_time))
-                  FROM (
-                      SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
-                      WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
-                      UNION
-                      SELECT evt_block_time FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
-                      WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
-                  )
-            ) AS DATE),
+            CAST('2024-02-22' AS DATE),
+            CAST('2024-06-12' AS DATE),
             INTERVAL '1' DAY
         )
     ) AS t(date_value)
 ),
-transfer_events AS (
+transfers AS (
     SELECT
         evt_tx_hash AS tx_hash,
-        evt_index AS "index",
+        evt_index AS log_index,
         evt_block_time AS block_time,
-        "from",
         "to",
         value
     FROM erc20_nova.evt_transfer
     WHERE contract_address = 0x8afe4055ebc86bd2afb3940c0095c9aca511d852
       AND "from" = 0x3BF6050327Fa280Ee1B5F3e8Fd5EA2EfE8A6472a
-      AND evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
+      AND evt_block_time >= CAST('2024-02-22' AS TIMESTAMP)
+      AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
 ),
 task_details AS (
     SELECT
         t.id AS task_id,
         t.fee AS task_fee,
+        t.sender AS task_owner,  -- Assuming msg.sender is task_owner
         s.addr AS validator
     FROM arbius_nova.engine_nova_obselete_evt_TaskSubmitted t
-    LEFT JOIN arbius_nova.engine_nova_obselete_evt_SolutionSubmitted s ON t.id = s.task
+    LEFT JOIN arbius_nova.engine_nova_obselete_evt_SolutionSubmitted s
+        ON t.id = s.task
 ),
-all_events AS (
-    SELECT 'SolutionClaimed' AS event_type, evt_tx_hash AS tx_hash, evt_index AS "index", evt_block_time AS block_time, addr AS validator, task AS task_id, NULL AS "from", NULL AS "to", NULL AS value
+events AS (
+    SELECT
+        evt_tx_hash AS tx_hash,
+        evt_index AS log_index,
+        'SolutionClaimed' AS event_type,
+        task AS task_id
     FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
-    WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
+    WHERE evt_block_time >= CAST('2024-02-22' AS TIMESTAMP)
+      AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
     UNION ALL
-    SELECT 'ContestationVoteFinish' AS event_type, evt_tx_hash AS tx_hash, evt_index AS "index", evt_block_time AS block_time, NULL AS validator, id AS task_id, NULL AS "from", NULL AS "to", NULL AS value
+    SELECT
+        evt_tx_hash AS tx_hash,
+        evt_index AS log_index,
+        'ContestationVoteFinish' AS event_type,
+        id AS task_id
     FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
-    WHERE start_idx = 0 AND evt_block_time >= CAST('2024-02-22' AS TIMESTAMP) AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
-    UNION ALL
-    SELECT 'Transfer' AS event_type, tx_hash, "index", block_time, NULL AS validator, NULL AS task_id, "from", "to", value
-    FROM transfer_events
+    WHERE start_idx = 0
+      AND evt_block_time >= CAST('2024-02-22' AS TIMESTAMP)
+      AND evt_block_time < CAST('2024-06-13' AS TIMESTAMP)
 ),
-events_with_group AS (
+events_with_bounds AS (
     SELECT
+        tx_hash,
+        log_index,
         event_type,
-        tx_hash,
-        "index",
-        block_time,
-        validator,
         task_id,
-        "from",
-        "to",
-        value,
-        SUM(CASE WHEN event_type IN ('SolutionClaimed', 'ContestationVoteFinish') THEN 1 ELSE 0 END) OVER (PARTITION BY tx_hash ORDER BY "index") AS group_id
-    FROM all_events
+        LAG(log_index) OVER (PARTITION BY tx_hash ORDER BY log_index) AS prev_log_index,
+        LEAD(log_index) OVER (PARTITION BY tx_hash ORDER BY log_index) AS next_log_index
+    FROM events
 ),
-group_info AS (
+transfer_assignments AS (
+    SELECT
+        t.tx_hash,
+        t.log_index AS transfer_log_index,
+        t.block_time,
+        t."to" AS transfer_to,
+        t.value AS transfer_value,
+        e.event_type,
+        e.task_id,
+        e.log_index AS event_log_index,
+        e.prev_log_index,
+        e.next_log_index,
+        td.task_owner,
+        td.validator,
+        td.task_fee
+    FROM transfers t
+    JOIN events_with_bounds e ON t.tx_hash = e.tx_hash
+    LEFT JOIN task_details td ON e.task_id = td.task_id
+    WHERE
+        (e.event_type = 'SolutionClaimed'
+            AND t.log_index > e.log_index
+            AND (e.next_log_index IS NULL OR t.log_index < e.next_log_index))
+        OR
+        (e.event_type = 'ContestationVoteFinish'
+            AND t.log_index < e.log_index
+            AND (e.prev_log_index IS NULL OR t.log_index > e.prev_log_index))
+),
+transfer_assignments_with_window AS (
     SELECT
         tx_hash,
-        group_id,
-        MAX(CASE WHEN event_type = 'SolutionClaimed' THEN validator END) AS solution_validator,
-        MAX(CASE WHEN event_type = 'ContestationVoteFinish' THEN task_id END) AS task_id,
-        MAX(CASE WHEN event_type = 'SolutionClaimed' THEN 1 ELSE 0 END) AS is_solution_claimed,
-        MAX(CASE WHEN event_type = 'ContestationVoteFinish' THEN 1 ELSE 0 END) AS is_contestation_vote_finish
-    FROM events_with_group
-    WHERE event_type IN ('SolutionClaimed', 'ContestationVoteFinish')
-    GROUP BY tx_hash, group_id
+        transfer_log_index,
+        block_time,
+        transfer_to,
+        transfer_value,
+        event_type,
+        task_id,
+        event_log_index,
+        task_owner,
+        validator,
+        task_fee,
+        LAG(transfer_to) OVER (PARTITION BY tx_hash ORDER BY transfer_log_index) AS prev_to,
+        LEAD(transfer_to) OVER (PARTITION BY tx_hash ORDER BY transfer_log_index) AS next_to
+    FROM transfer_assignments
 ),
-transfer_groups AS (
-    SELECT
-        e.tx_hash,
-        e.group_id,
-        e."index",
-        e.block_time,
-        e."from",
-        e."to",
-        e.value,
-        LEAD(e."to") OVER (PARTITION BY e.tx_hash, e.group_id ORDER BY e."index") AS next_to,
-        COALESCE(g.solution_validator, td.validator) AS validator,
-        td.task_fee,
-        g.is_solution_claimed,
-        g.is_contestation_vote_finish
-    FROM events_with_group e
-    JOIN group_info g ON e.tx_hash = g.tx_hash AND e.group_id = g.group_id
-    LEFT JOIN task_details td ON g.task_id = td.task_id
-    WHERE e.event_type = 'Transfer'
-),
-refund_check AS (
+refund_flags AS (
     SELECT
         tx_hash,
-        group_id,
-        MAX(CASE WHEN value = task_fee AND "to" != validator AND "to" != 0x1298F8A91B046d7fCBd5454cd3331Ba6f4feA168 THEN 1 ELSE 0 END) AS has_refund
-    FROM transfer_groups
-    WHERE is_contestation_vote_finish = 1
-    GROUP BY tx_hash, group_id
+        event_log_index,
+        MAX(CASE WHEN transfer_to = task_owner AND transfer_value = task_fee THEN 1 ELSE 0 END) AS has_refund
+    FROM transfer_assignments_with_window
+    WHERE event_type = 'ContestationVoteFinish'
+    GROUP BY tx_hash, event_log_index
+),
+groups_to_consider AS (
+    SELECT tx_hash, log_index, event_type
+    FROM events_with_bounds
+    WHERE event_type = 'SolutionClaimed'
+    UNION ALL
+    SELECT e.tx_hash, e.log_index, e.event_type
+    FROM events_with_bounds e
+    LEFT JOIN refund_flags r ON e.tx_hash = r.tx_hash AND e.log_index = r.event_log_index
+    WHERE e.event_type = 'ContestationVoteFinish'
+      AND (r.has_refund = 0 OR r.has_refund IS NULL)
 ),
 reward_transfers AS (
     SELECT
         t.tx_hash,
-        t."index",
+        t.transfer_log_index,
         t.block_time,
-        t.value
-    FROM transfer_groups t
-    LEFT JOIN refund_check r ON t.tx_hash = r.tx_hash AND t.group_id = r.group_id
-    WHERE (t.is_solution_claimed = 1 OR (t.is_contestation_vote_finish = 1 AND (r.has_refund = 0 OR r.has_refund IS NULL)))
-      AND t."to" = t.validator
-      AND t.next_to = 0x1298F8A91B046d7fCBd5454cd3331Ba6f4feA168
+        CASE
+            WHEN t.transfer_to = t.validator
+                 AND t.next_to = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168
+                THEN 'validator'
+            WHEN t.transfer_to = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168
+                 AND t.prev_to = t.validator
+                THEN 'treasury'
+            WHEN t.transfer_to = t.task_owner
+                 AND t.prev_to = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168
+                THEN 'task_owner'
+        END AS recipient_type,
+        t.transfer_value AS reward_amount
+    FROM transfer_assignments_with_window t
+    JOIN groups_to_consider g ON t.tx_hash = g.tx_hash AND t.event_log_index = g.log_index
+    WHERE
+        (t.transfer_to = t.validator
+            AND t.next_to = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168)
+        OR
+        (t.transfer_to = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168
+            AND t.prev_to = t.validator)
+        OR
+        (t.transfer_to = t.task_owner
+            AND t.prev_to = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168)
 ),
 daily_rewards AS (
     SELECT
         DATE_TRUNC('day', block_time) AS reward_date,
-        SUM(value) AS daily_rewards
+        recipient_type,
+        SUM(reward_amount) AS daily_rewards
     FROM reward_transfers
-    GROUP BY DATE_TRUNC('day', block_time)
+    GROUP BY DATE_TRUNC('day', block_time), recipient_type
 )
 SELECT
     ds.reward_date AS day,
-    CAST(COALESCE(dr.daily_rewards, 0) AS DOUBLE) / 1e18 AS daily_rewards,
-    CAST(SUM(COALESCE(dr.daily_rewards, 0)) OVER (ORDER BY ds.reward_date) AS DOUBLE) / 1e18 AS cumulative_amount
+    COALESCE(SUM(CASE WHEN dr.recipient_type = 'treasury' THEN dr.daily_rewards ELSE 0 END),0) / 1e18 AS daily_treasury_rewards,
+    COALESCE(SUM(CASE WHEN dr.recipient_type = 'validator' THEN dr.daily_rewards ELSE 0 END),0) / 1e18 AS daily_validator_rewards,
+    COALESCE(SUM(CASE WHEN dr.recipient_type = 'task_owner' THEN dr.daily_rewards ELSE 0 END),0) / 1e18 AS daily_task_owner_rewards,
+    COALESCE(SUM(SUM(CASE WHEN dr.recipient_type = 'treasury' THEN dr.daily_rewards ELSE 0 END)) OVER (ORDER BY ds.reward_date),0) / 1e18 AS cumulative_treasury_rewards,
+    COALESCE(SUM(SUM(CASE WHEN dr.recipient_type = 'validator' THEN dr.daily_rewards ELSE 0 END)) OVER (ORDER BY ds.reward_date),0) / 1e18 AS cumulative_validator_rewards,
+    COALESCE(SUM(SUM(CASE WHEN dr.recipient_type = 'task_owner' THEN dr.daily_rewards ELSE 0 END)) OVER (ORDER BY ds.reward_date),0) / 1e18 AS cumulative_task_owner_rewards,
+    COALESCE(SUM(SUM(dr.daily_rewards)) OVER (ORDER BY ds.reward_date),0) / 1e18 AS cumulative_total_rewards
 FROM date_series ds
 LEFT JOIN daily_rewards dr ON ds.reward_date = dr.reward_date
+GROUP BY ds.reward_date
 ORDER BY ds.reward_date;
