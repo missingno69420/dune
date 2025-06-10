@@ -14,6 +14,8 @@ all_rewards AS (
     UNION ALL
     SELECT day, cumulative_withdrawn as cumulative_amount, 'V1 Sablier Stream Withdrawals' AS source FROM query_5261742
     UNION ALL
+    SELECT day, cumulative_reward as cumulative_amount, 'VeStaking Rewards' AS source FROM query_5262526
+    UNION ALL
     SELECT day, cumulative_amount, source FROM (
         SELECT day, cumulative_treasury_rewards_tokens, cumulative_task_owner_rewards_tokens, cumulative_validator_rewards_tokens FROM query_5168325
     ) t
