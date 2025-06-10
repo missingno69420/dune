@@ -15,7 +15,9 @@ all_rewards AS (
     UNION ALL
     SELECT day, cumulative_reward AS cumulative_amount, 'VeStaking Rewards' AS source FROM query_5262526
     UNION ALL
-    SELECT day, cumulative_rewards AS cumulative_amount, 'LP Staking Rewards' AS source FROM query_5264349
+    SELECT day, cumulative_rewards AS cumulative_amount, 'Arbius LP Staking Rewards' AS source FROM query_5264349
+    UNION ALL
+    SELECT day, cumulative_amount, 'Merkl LP Staking Rewards' FROM query_5264546
     UNION ALL
     SELECT day, cumulative_amount, source FROM (
         SELECT day, cumulative_treasury_rewards_tokens, cumulative_task_owner_rewards_tokens, cumulative_validator_rewards_tokens FROM query_5168325
