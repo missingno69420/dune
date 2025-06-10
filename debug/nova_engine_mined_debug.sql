@@ -1,27 +1,18 @@
-WITH selected_date AS (
-    SELECT CAST('2024-05-15' AS DATE) AS the_date
-),
-date_series AS (
-    SELECT t.reward_minute
-    FROM selected_date
-    CROSS JOIN UNNEST(sequence(
-        CAST(the_date AS TIMESTAMP),
-        CAST(the_date AS TIMESTAMP) + INTERVAL '1' DAY - INTERVAL '1' MINUTE,
-        INTERVAL '1' MINUTE
-    )) AS t(reward_minute)
+WITH target_tx AS (
+    SELECT 0x8856f9e28fbe40e708b5b4178be4213c6ccdcb5b9d2c079a3e4e2a0c07667517 AS tx_hash  -- Replace with the actual block number
 ),
 transfers AS (
     SELECT
         evt_tx_hash AS tx_hash,
         evt_index AS log_index,
         evt_block_time AS block_time,
+        evt_block_number AS block_number,
         "to",
         value
     FROM erc20_nova.evt_transfer
     WHERE contract_address = 0x8afe4055ebc86bd2afb3940c0095c9aca511d852
       AND "from" = 0x3BF6050327Fa280Ee1B5F3e8Fd5EA2EfE8A6472a
-      AND evt_block_time >= (SELECT the_date FROM selected_date)
-      AND evt_block_time < (SELECT the_date + INTERVAL '1' DAY FROM selected_date)
+      AND evt_tx_hash = (SELECT tx_hash FROM target_tx)
 ),
 task_details AS (
     SELECT
@@ -38,20 +29,20 @@ events AS (
         evt_tx_hash AS tx_hash,
         evt_index AS log_index,
         'SolutionClaimed' AS event_type,
-        task AS task_id
+        task AS task_id,
+        evt_block_number AS block_number
     FROM arbius_nova.engine_nova_obselete_evt_SolutionClaimed
-    WHERE evt_block_time >= (SELECT the_date FROM selected_date)
-      AND evt_block_time < (SELECT the_date + INTERVAL '1' DAY FROM selected_date)
+    WHERE evt_tx_hash = (SELECT tx_hash FROM target_tx)
     UNION ALL
     SELECT
         evt_tx_hash AS tx_hash,
         evt_index AS log_index,
         'ContestationVoteFinish' AS event_type,
-        id AS task_id
+        id AS task_id,
+        evt_block_number AS block_number
     FROM arbius_nova.engine_nova_obselete_evt_ContestationVoteFinish
     WHERE start_idx = 0
-      AND evt_block_time >= (SELECT the_date FROM selected_date)
-      AND evt_block_time < (SELECT the_date + INTERVAL '1' DAY FROM selected_date)
+      AND evt_tx_hash = (SELECT tx_hash FROM target_tx)
 ),
 events_with_bounds AS (
     SELECT
@@ -59,6 +50,7 @@ events_with_bounds AS (
         log_index,
         event_type,
         task_id,
+        block_number,
         LAG(log_index) OVER (PARTITION BY tx_hash ORDER BY log_index) AS prev_log_index,
         LEAD(log_index) OVER (PARTITION BY tx_hash ORDER BY log_index) AS next_log_index
     FROM events
@@ -68,6 +60,7 @@ transfer_assignments AS (
         t.tx_hash,
         t.log_index AS transfer_log_index,
         t.block_time,
+        e.block_number,
         t."to" AS transfer_to,
         t.value AS transfer_value,
         e.event_type,
@@ -95,6 +88,7 @@ transfer_assignments_with_window AS (
         tx_hash,
         transfer_log_index,
         block_time,
+        block_number,
         transfer_to,
         transfer_value,
         event_type,
@@ -132,6 +126,7 @@ reward_transfers AS (
         t.tx_hash,
         t.transfer_log_index,
         t.block_time,
+        t.block_number,
         CASE
             WHEN t.transfer_to = t.validator
                  AND t.next_to = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168
@@ -155,25 +150,11 @@ reward_transfers AS (
         OR
         (t.transfer_to = t.task_owner
             AND t.prev_to = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168)
-),
-minute_rewards AS (
-    SELECT
-        DATE_TRUNC('minute', block_time) AS reward_minute,
-        recipient_type,
-        SUM(reward_amount) AS minute_rewards
-    FROM reward_transfers
-    GROUP BY DATE_TRUNC('minute', block_time), recipient_type
 )
 SELECT
-    ds.reward_minute,
-    COALESCE(SUM(CASE WHEN mr.recipient_type = 'treasury' THEN mr.minute_rewards ELSE 0 END), 0) / 1e18 AS minute_treasury_rewards,
-    COALESCE(SUM(CASE WHEN mr.recipient_type = 'validator' THEN mr.minute_rewards ELSE 0 END), 0) / 1e18 AS minute_validator_rewards,
-    COALESCE(SUM(CASE WHEN mr.recipient_type = 'task_owner' THEN mr.minute_rewards ELSE 0 END), 0) / 1e18 AS minute_task_owner_rewards,
-    COALESCE(SUM(SUM(CASE WHEN mr.recipient_type = 'treasury' THEN mr.minute_rewards ELSE 0 END)) OVER (ORDER BY ds.reward_minute), 0) / 1e18 AS cumulative_treasury_rewards,
-    COALESCE(SUM(SUM(CASE WHEN mr.recipient_type = 'validator' THEN mr.minute_rewards ELSE 0 END)) OVER (ORDER BY ds.reward_minute), 0) / 1e18 AS cumulative_validator_rewards,
-    COALESCE(SUM(SUM(CASE WHEN mr.recipient_type = 'task_owner' THEN mr.minute_rewards ELSE 0 END)) OVER (ORDER BY ds.reward_minute), 0) / 1e18 AS cumulative_task_owner_rewards,
-    COALESCE(SUM(SUM(mr.minute_rewards)) OVER (ORDER BY ds.reward_minute), 0) / 1e18 AS cumulative_total_rewards
-FROM date_series ds
-LEFT JOIN minute_rewards mr ON ds.reward_minute = mr.reward_minute
-GROUP BY ds.reward_minute
-ORDER BY ds.reward_minute;
+    (SELECT tx_hash FROM target_tx) AS tx_tash,
+    COALESCE(SUM(CASE WHEN recipient_type = 'treasury' THEN reward_amount ELSE 0 END), 0) / 1e18 AS treasury_rewards,
+    COALESCE(SUM(CASE WHEN recipient_type = 'validator' THEN reward_amount ELSE 0 END), 0) / 1e18 AS validator_rewards,
+    COALESCE(SUM(CASE WHEN recipient_type = 'task_owner' THEN reward_amount ELSE 0 END), 0) / 1e18 AS task_owner_rewards,
+    COALESCE(SUM(reward_amount), 0) / 1e18 AS total_rewards
+FROM reward_transfers;
