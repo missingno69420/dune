@@ -1,5 +1,5 @@
 WITH target_tx AS (
-    SELECT 0x8856f9e28fbe40e708b5b4178be4213c6ccdcb5b9d2c079a3e4e2a0c07667517 AS tx_hash  -- Replace with the actual block number
+    SELECT 0x93c8ed2d5c5f0243dbec980479815fd56bf9d56ff60383a4f500b4e157150330 AS tx_hash
 ),
 transfers AS (
     SELECT
@@ -150,11 +150,40 @@ reward_transfers AS (
         OR
         (t.transfer_to = t.task_owner
             AND t.prev_to = 0x1298f8a91b046d7fcbd5454cd3331ba6f4fea168)
+),
+fee_transfers AS (
+    SELECT
+        t.tx_hash,
+        t.transfer_log_index,
+        t.block_time,
+        t.block_number,
+        t.transfer_to,
+        t.transfer_value,
+        t.validator
+    FROM transfer_assignments_with_window t
+    LEFT JOIN reward_transfers r ON t.tx_hash = r.tx_hash AND t.transfer_log_index = r.transfer_log_index
+    WHERE r.tx_hash IS NULL
+),
+fee_transfers_classified AS (
+    SELECT
+        tx_hash,
+        transfer_log_index,
+        block_time,
+        block_number,
+        transfer_to,
+        transfer_value,
+        CASE
+            WHEN transfer_to = validator THEN 'validator_fee'
+            ELSE 'other_fee'
+        END AS fee_type
+    FROM fee_transfers
+    WHERE validator IS NOT NULL
 )
 SELECT
-    (SELECT tx_hash FROM target_tx) AS tx_tash,
-    COALESCE(SUM(CASE WHEN recipient_type = 'treasury' THEN reward_amount ELSE 0 END), 0) / 1e18 AS treasury_rewards,
-    COALESCE(SUM(CASE WHEN recipient_type = 'validator' THEN reward_amount ELSE 0 END), 0) / 1e18 AS validator_rewards,
-    COALESCE(SUM(CASE WHEN recipient_type = 'task_owner' THEN reward_amount ELSE 0 END), 0) / 1e18 AS task_owner_rewards,
-    COALESCE(SUM(reward_amount), 0) / 1e18 AS total_rewards
-FROM reward_transfers;
+    (SELECT tx_hash FROM target_tx) AS tx_hash,
+    COALESCE((SELECT SUM(reward_amount) / 1e18 FROM reward_transfers WHERE recipient_type = 'treasury'), 0) AS treasury_rewards,
+    COALESCE((SELECT SUM(reward_amount) / 1e18 FROM reward_transfers WHERE recipient_type = 'validator'), 0) AS validator_rewards,
+    COALESCE((SELECT SUM(reward_amount) / 1e18 FROM reward_transfers WHERE recipient_type = 'task_owner'), 0) AS task_owner_rewards,
+    COALESCE((SELECT SUM(reward_amount) / 1e18 FROM reward_transfers), 0) AS total_rewards,
+    COALESCE((SELECT SUM(transfer_value) / 1e18 FROM fee_transfers_classified WHERE fee_type = 'validator_fee'), 0) AS validator_fees,
+    COALESCE((SELECT SUM(transfer_value) / 1e18 FROM fee_transfers_classified WHERE fee_type = 'other_fee'), 0) AS other_fees;
