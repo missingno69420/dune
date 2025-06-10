@@ -48,21 +48,33 @@ all_rewards AS (
 all_sources AS (
     SELECT DISTINCT source FROM all_rewards
 ),
-final_rewards AS (
-    SELECT
-        d.day,
-        s.source,
-        MAX(r.cumulative_amount) OVER (
-            PARTITION BY s.source ORDER BY d.day
-            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        ) AS cumulative_amount
+all_days_sources AS (
+    SELECT d.day, s.source
     FROM date_series d
     CROSS JOIN all_sources s
-    LEFT JOIN all_rewards r ON r.source = s.source AND r.day = d.day
+),
+joined AS (
+    SELECT
+        ads.day,
+        ads.source,
+        ar.cumulative_amount
+    FROM all_days_sources ads
+    LEFT JOIN all_rewards ar
+      ON ar.day = ads.day AND ar.source = ads.source
+),
+filled AS (
+    SELECT
+        day,
+        source,
+        MAX(cumulative_amount) OVER (
+            PARTITION BY source ORDER BY day
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS cumulative_amount
+    FROM joined
 )
 SELECT
     day,
     source,
     COALESCE(cumulative_amount, 0) AS cumulative_amount
-FROM final_rewards
+FROM filled
 ORDER BY day DESC, source;
