@@ -1,5 +1,4 @@
 -- https://dune.com/queries/5247542/
--- Combine data from V1, V2 rewards, and the initial liquidity transfer
 WITH date_series AS (
     SELECT day
     FROM UNNEST(sequence(
@@ -12,9 +11,9 @@ all_rewards AS (
     UNION ALL
     SELECT day, cumulative_amount, 'V2 Gysr Rewards' AS source FROM query_5245991
     UNION ALL
-    SELECT day, cumulative_withdrawn as cumulative_amount, 'V1 Sablier Stream Withdrawals' AS source FROM query_5261742
+    SELECT day, cumulative_withdrawn AS cumulative_amount, 'V1 Sablier Stream Withdrawals' AS source FROM query_5261742
     UNION ALL
-    SELECT day, cumulative_reward as cumulative_amount, 'VeStaking Rewards' AS source FROM query_5262526
+    SELECT day, cumulative_reward AS cumulative_amount, 'VeStaking Rewards' AS source FROM query_5262526
     UNION ALL
     SELECT day, cumulative_amount, source FROM (
         SELECT day, cumulative_treasury_rewards_tokens, cumulative_task_owner_rewards_tokens, cumulative_validator_rewards_tokens FROM query_5168325
@@ -47,12 +46,11 @@ all_rewards AS (
 all_sources AS (
     SELECT DISTINCT source FROM all_rewards
 ),
--- For each source, join to the date series and pull forward the last known value
 final_rewards AS (
     SELECT
         d.day,
         s.source,
-        MAX_BY(r.cumulative_amount, CASE WHEN r.cumulative_amount IS NOT NULL THEN r.day ELSE NULL END) OVER (
+        MAX(r.cumulative_amount) OVER (
             PARTITION BY s.source ORDER BY d.day
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS cumulative_amount
