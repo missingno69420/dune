@@ -11,7 +11,13 @@ all_rewards AS (
     UNION ALL
     SELECT day, cumulative_amount, 'V2 Gysr Rewards' AS source FROM query_5245991
     UNION ALL
-    SELECT day, cumulative_withdrawn AS cumulative_amount, 'V1 Sablier Stream Withdrawals' AS source FROM query_5261742
+    SELECT day, cumulative_withdrawn AS cumulative_amount, 'V1 Sablier Stream Withdrawals - Private Sale' AS source
+    FROM query_5269610
+    WHERE withdrawal_group = 'Private Sale'
+    UNION ALL
+    SELECT day, cumulative_withdrawn AS cumulative_amount, 'V1 Sablier Stream Withdrawals - Team' AS source
+    FROM query_5269610
+    WHERE withdrawal_group = 'Team'
     UNION ALL
     SELECT day, cumulative_reward AS cumulative_amount, 'VeStaking Rewards' AS source FROM query_5262526
     UNION ALL
