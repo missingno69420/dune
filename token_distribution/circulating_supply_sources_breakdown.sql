@@ -19,6 +19,8 @@ all_rewards AS (
     UNION ALL
     SELECT day, cumulative_amount, 'Merkl LP Staking Rewards' FROM query_5264546
     UNION ALL
+    SELECT day, cumulative_fee as cumulative_amount, 'LP Rewards Protocol Fees' FROM query_5268057
+    UNION ALL
     SELECT day, cumulative_amount, source FROM (
         SELECT day, cumulative_treasury_rewards_tokens, cumulative_task_owner_rewards_tokens, cumulative_validator_rewards_tokens FROM query_5168325
     ) t
