@@ -1,4 +1,4 @@
--- https://dune.com/queries/5256172/
+-- https://dune.com/queries/5264668
 WITH date_series AS (
     SELECT CAST(date_value AS DATE) AS reward_date
     FROM UNNEST(
