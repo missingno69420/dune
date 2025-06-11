@@ -31,7 +31,7 @@ all_rewards AS (
     ) AS t (source, cumulative_amount)
     UNION ALL
     SELECT day, cumulative_amount, source FROM (
-        SELECT day, cumulative_treasury_rewards, cumulative_validator_rewards, cumulative_task_owner_rewards FROM query_5256172
+        SELECT day, cumulative_treasury_rewards, cumulative_validator_rewards, cumulative_task_owner_rewards FROM dune.missingno69420.result_nova_engine_rewards -- query_5256172
     ) t
     CROSS JOIN UNNEST(
         ARRAY[
