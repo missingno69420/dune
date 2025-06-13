@@ -39,4 +39,4 @@ SELECT
   cumulative_treasury_reward / 1e18 AS cumulative_treasury_reward_tokens,
   cumulative_total_treasury / 1e18 AS cumulative_total_treasury_tokens
 FROM cumulative_sums
-ORDER BY day
+ORDER BY day DESC;
