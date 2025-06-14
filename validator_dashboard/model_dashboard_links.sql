@@ -1,7 +1,7 @@
 -- https://dune.com/queries/5191539/
 SELECT
     get_href(
-        'https://dune.com/arbius_dashboards/model?model_id_tee4a4=0x' || model_id,
+        'https://dune.com/arbius_dashboards/model?model_id_tafe50=0x' || model_id,
         CASE
             WHEN model_name IS NULL OR model_name = '' THEN '0x' || model_id
             ELSE model_name
