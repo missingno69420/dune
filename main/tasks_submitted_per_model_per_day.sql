@@ -13,4 +13,4 @@ SELECT
   t.tasks_submitted
 FROM tasks_submitted t
 LEFT JOIN query_5169304 m ON t.model_id = m.model_id
-ORDER BY t.day, COALESCE(m.model_name, to_hex(t.model_id))
+ORDER BY t.day, COALESCE(m.model_name, to_hex(t.model_id)) DESC;
