@@ -74,10 +74,31 @@ cumulative_balances AS (
     day,
     SUM(daily_net_change) OVER (PARTITION BY wallet ORDER BY day) AS balance
   FROM daily_balances
+),
+daily_start_of_day AS (
+  SELECT
+    TIMESTAMP(day) AS time,
+    wallet,
+    LAG(balance, 1, 0) OVER (PARTITION BY wallet ORDER BY day) / 1e18 AS balance_aius
+  FROM cumulative_balances
+),
+current_balance AS (
+  SELECT
+    NOW() AS time,
+    wallet,
+    balance / 1e18 AS balance_aius
+  FROM cumulative_balances
+  WHERE (wallet, day) IN (SELECT wallet, MAX(day) FROM cumulative_balances GROUP BY wallet)
 )
 SELECT
-  day,
+  time,
   wallet,
-  balance / 1e18 AS balance_aius
-FROM cumulative_balances
-ORDER BY day DESC;
+  balance_aius
+FROM daily_start_of_day
+UNION ALL
+SELECT
+  time,
+  wallet,
+  balance_aius
+FROM current_balance
+ORDER BY time DESC, wallet;
