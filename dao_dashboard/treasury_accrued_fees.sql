@@ -109,6 +109,17 @@ withdrawal_snapshots AS (
   FROM events_with_accrued
   WHERE event_type = 'withdrawal'
 ),
+current_snapshot AS (
+  SELECT
+    NOW() AS time,
+    COALESCE(
+      (SELECT accruedFees FROM events_with_accrued ORDER BY time DESC, tx_hash DESC, index DESC LIMIT 1),
+      0
+    ) AS accruedFees,
+    'current' AS event_type,
+    NULL AS withdrawn_amount,
+    3 AS type_order
+),
 final_data AS (
   SELECT
     time,
@@ -125,6 +136,14 @@ final_data AS (
     withdrawn_amount,
     type_order
   FROM withdrawal_snapshots
+  UNION ALL
+  SELECT
+    time,
+    accruedFees,
+    event_type,
+    withdrawn_amount,
+    type_order
+  FROM current_snapshot
 )
 SELECT
   time,
