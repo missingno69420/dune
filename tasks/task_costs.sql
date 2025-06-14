@@ -1,16 +1,18 @@
 -- https://dune.com/queries/5284859/
-WITH task_data AS (
-  SELECT
-    CAST(t.fee AS DECIMAL(38, 0)) / POWER(10, 18) AS task_fee_aius,
-    CAST(COALESCE(ti.total_incentives_added, 0) AS DECIMAL(38, 0)) / POWER(10, 18) AS total_incentives_added_aius
-  FROM arbius_arbitrum.engine_evt_tasksubmitted t
-  LEFT JOIN (
-    SELECT taskid, SUM(amount) AS total_incentives_added
-    FROM arbius_arbitrum.arbiusrouterv1_evt_incentiveadded
-    GROUP BY taskid
-  ) ti ON t.id = ti.taskid
-  WHERE t.id = {{task_id}}
+WITH task_fee AS (
+  SELECT fee AS task_fee
+  FROM arbius_arbitrum.engine_evt_tasksubmitted
+  WHERE id = {{task_id}}
+),
+total_incentives AS (
+  SELECT SUM(amount) AS total_incentives_added
+  FROM arbius_arbitrum.arbiusrouterv1_evt_incentiveadded
+  WHERE taskid = {{task_id}}
 )
-SELECT 'Task Fee' AS type, task_fee_aius AS amount FROM task_data
+SELECT 'Task Fee' AS type,
+       COALESCE(CAST(CAST(task_fee AS VARCHAR) AS DECIMAL(38,18)) / POWER(10,18), 0) AS amount
+FROM task_fee
 UNION ALL
-SELECT 'Incentives Added' AS type, total_incentives_added_aius AS amount FROM task_data
+SELECT 'Incentives Added' AS type,
+       COALESCE(CAST(CAST(total_incentives_added AS VARCHAR) AS DECIMAL(38,18)) / POWER(10,18), 0) AS amount
+FROM total_incentives

@@ -1,30 +1,44 @@
 -- https://dune.com/queries/5284860/
-WITH payout_data AS (
+WITH payouts AS (
   SELECT
-    CAST(COALESCE(f.modelFee - f.treasuryFee, 0) AS DECIMAL(38, 0)) / POWER(10, 18) AS model_owner_fee_aius,
-    CAST(COALESCE(f.treasuryFee + (f.remainingFee - f.validatorFee), 0) AS DECIMAL(38, 0)) / POWER(10, 18) AS treasury_fee_aius,
-    CAST(COALESCE(f.validatorFee, 0) AS DECIMAL(38, 0)) / POWER(10, 18) AS validator_fee_aius,
-    CAST(COALESCE(r.treasuryReward, 0) AS DECIMAL(38, 0)) / POWER(10, 18) AS treasury_reward_aius,
-    CAST(COALESCE(r.taskOwnerReward, 0) AS DECIMAL(38, 0)) / POWER(10, 18) AS task_owner_reward_aius,
-    CAST(COALESCE(r.validatorReward, 0) AS DECIMAL(38, 0)) / POWER(10, 18) AS validator_reward_aius,
-    CAST(COALESCE(i.amount, 0) AS DECIMAL(38, 0)) / POWER(10, 18) AS incentive_paid_aius
-  FROM arbius_arbitrum.engine_evt_tasksubmitted t
-  LEFT JOIN arbius_arbitrum.engine_evt_solutionclaimed s ON t.id = s.task
-  LEFT JOIN arbius_arbitrum.engine_evt_feespaid f ON s.evt_tx_hash = f.evt_tx_hash AND f.evt_index = s.evt_index + 1
-  LEFT JOIN arbius_arbitrum.engine_evt_rewardspaid r ON s.evt_tx_hash = r.evt_tx_hash AND r.evt_index = s.evt_index + 2
-  LEFT JOIN arbius_arbitrum.arbiusrouterv1_evt_incentiveclaimed i ON t.id = i.taskid
-  WHERE t.id = {{task_id}}
+    MAX(CASE WHEN event_type = 'FeesPaid' THEN model_owner_fee END) AS model_owner_fee,
+    MAX(CASE WHEN event_type = 'FeesPaid' THEN treasury_total_fee END) AS treasury_total_fee,
+    MAX(CASE WHEN event_type = 'FeesPaid' THEN validator_fee END) AS validator_fee,
+    MAX(CASE WHEN event_type = 'RewardsPaid' THEN treasury_reward END) AS treasury_reward,
+    MAX(CASE WHEN event_type = 'RewardsPaid' THEN task_owner_reward END) AS task_owner_reward,
+    MAX(CASE WHEN event_type = 'RewardsPaid' THEN validator_reward END) AS validator_reward
+  FROM query_5179596
+  WHERE task_id = {{task_id}}
+),
+incentive_paid AS (
+  SELECT COALESCE(amount, 0) AS incentive_paid
+  FROM arbius_arbitrum.arbiusrouterv1_evt_incentiveclaimed
+  WHERE taskid = {{task_id}}
 )
-SELECT 'Model Owner Fee' AS type, model_owner_fee_aius AS amount FROM payout_data
+SELECT 'Model Owner Fee' AS type,
+       COALESCE(CAST(CAST(model_owner_fee AS VARCHAR) AS DECIMAL(38,18)) / POWER(10,18), 0) AS amount
+FROM payouts
 UNION ALL
-SELECT 'Treasury Fee' AS type, treasury_fee_aius AS amount FROM payout_data
+SELECT 'Treasury Fee' AS type,
+       COALESCE(CAST(CAST(treasury_total_fee AS VARCHAR) AS DECIMAL(38,18)) / POWER(10,18), 0) AS amount
+FROM payouts
 UNION ALL
-SELECT 'Validator Fee' AS type, validator_fee_aius AS amount FROM payout_data
+SELECT 'Validator Fee' AS type,
+       COALESCE(CAST(CAST(validator_fee AS VARCHAR) AS DECIMAL(38,18)) / POWER(10,18), 0) AS amount
+FROM payouts
 UNION ALL
-SELECT 'Treasury Reward' AS type, treasury_reward_aius AS amount FROM payout_data
+SELECT 'Treasury Reward' AS type,
+       COALESCE(CAST(CAST(treasury_reward AS VARCHAR) AS DECIMAL(38,18)) / POWER(10,18), 0) AS amount
+FROM payouts
 UNION ALL
-SELECT 'Task Owner Reward' AS type, task_owner_reward_aius AS amount FROM payout_data
+SELECT 'Task Owner Reward' AS type,
+       COALESCE(CAST(CAST(task_owner_reward AS VARCHAR) AS DECIMAL(38,18)) / POWER(10,18), 0) AS amount
+FROM payouts
 UNION ALL
-SELECT 'Validator Reward' AS type, validator_reward_aius AS amount FROM payout_data
+SELECT 'Validator Reward' AS type,
+       COALESCE(CAST(CAST(validator_reward AS VARCHAR) AS DECIMAL(38,18)) / POWER(10,18), 0) AS amount
+FROM payouts
 UNION ALL
-SELECT 'Incentive Paid' AS type, incentive_paid_aius AS amount FROM payout_data
+SELECT 'Incentive Paid' AS type,
+       COALESCE(CAST(CAST(incentive_paid AS VARCHAR) AS DECIMAL(38,18)) / POWER(10,18), 0) AS amount
+FROM incentive_paid
