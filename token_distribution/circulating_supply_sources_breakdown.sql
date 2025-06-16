@@ -1,4 +1,5 @@
 -- https://dune.com/queries/5247542/
+-- https://dune.com/queries/5247542/
 WITH date_series AS (
     SELECT day
     FROM UNNEST(sequence(
@@ -7,6 +8,8 @@ WITH date_series AS (
     )) AS t(day)
 ),
 all_rewards AS (
+    SELECT vesting_date as day, cumulative_vested as cumulative_amount, 'Vested DAO Funds' as source from query_5292842
+    UNION ALL
     SELECT day, cumulative_amount, 'V1 Gysr Rewards' AS source FROM query_5245571
     UNION ALL
     SELECT day, cumulative_amount, 'V2 Gysr Rewards' AS source FROM query_5245991
