@@ -43,9 +43,20 @@ all_rewards AS (
     ) t
     CROSS JOIN UNNEST(
         ARRAY[
-            ROW('Rewards Paid to Treasury (Nova)', t.cumulative_treasury_rewards),
-            ROW('Rewards Paid to Validators (Nova)', t.cumulative_validator_rewards),
-            ROW('Rewards Paid to Task Owners (Nova)', t.cumulative_task_owner_rewards)
+            ROW('Rewards Paid to Treasury (V2 Nova)', t.cumulative_treasury_rewards),
+            ROW('Rewards Paid to Validators (V2 Nova)', t.cumulative_validator_rewards),
+            ROW('Rewards Paid to Task Owners (V2 Nova)', t.cumulative_task_owner_rewards)
+        ]
+    ) AS t (source, cumulative_amount)
+    UNION ALL
+    SELECT day, cumulative_amount, source FROM (
+        SELECT day, cumulative_treasury_rewards, cumulative_validator_rewards, cumulative_task_owner_rewards FROM query_5291842
+    ) t
+    CROSS JOIN UNNEST(
+        ARRAY[
+            ROW('Rewards Paid to Treasury (V1 Nova)', t.cumulative_treasury_rewards),
+            ROW('Rewards Paid to Validators (V1 Nova)', t.cumulative_validator_rewards),
+            ROW('Rewards Paid to Task Owners (V1 Nova)', t.cumulative_task_owner_rewards)
         ]
     ) AS t (source, cumulative_amount)
     UNION ALL
