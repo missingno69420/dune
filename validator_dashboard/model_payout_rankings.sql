@@ -1,6 +1,6 @@
 -- https://dune.com/queries/5191696/
 WITH
--- Step 1: Select payouts within the lookback_period_minutes from query_5179596
+-- Step 1: Select payouts within the lookback_period_minutes from query_5179596, excluding tasks with no payouts
 payouts AS (
     SELECT
         p.task_id,
@@ -10,6 +10,8 @@ payouts AS (
     WHERE p.block_time >= NOW() - INTERVAL '{{lookback_period_minutes}}' MINUTE
     AND p.task_id IS NOT NULL
     GROUP BY p.task_id
+    HAVING SUM(CASE WHEN p.event_type = 'FeesPaid' THEN p.validator_fee ELSE 0 END) > 0
+        OR SUM(CASE WHEN p.event_type = 'RewardsPaid' THEN p.validator_reward ELSE 0 END) > 0
 ),
 -- Step 2: Identify tasks associated with these payouts
 tasks AS (
@@ -38,7 +40,7 @@ task_profitability AS (
         COALESCE(i.total_incentives, 0) AS total_incentives,
         COALESCE(p.validator_fees, 0) + COALESCE(p.validator_rewards, 0) + COALESCE(i.total_incentives, 0) AS profitability
     FROM tasks t
-    LEFT JOIN payouts p ON t.task_id = p.task_id
+    JOIN payouts p ON t.task_id = p.task_id
     LEFT JOIN incentives i ON t.task_id = i.task_id
 ),
 -- Step 5: Assign ranks within each model for min and max profitability
@@ -122,7 +124,7 @@ final_ranks AS (
         DENSE_RANK() OVER (ORDER BY max_profitability DESC) AS rank_max_profitability
     FROM model_profitability_with_names
 )
--- Step  opon11: Final output with conversions to AIUS tokens
+-- Step 11: Final output with conversions to AIUS tokens
 SELECT
     model_id,
     model_name,
@@ -139,4 +141,4 @@ SELECT
     CAST(CAST(max_total_incentives AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS max_total_incentives_aius,
     CAST(CAST(max_profitability AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS max_profitability_aius
 FROM final_ranks
-ORDER BY rank_max_profitability, rank_min_profitability
+ORDER BY rank_max_profitability, rank_min_profitability;

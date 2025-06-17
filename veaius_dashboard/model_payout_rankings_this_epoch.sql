@@ -1,6 +1,11 @@
+-- https://dune.com/queries/5297981/
 WITH params AS (
   SELECT
-    DATE_TRUNC('day', DATE_TRUNC('week', CURRENT_TIMESTAMP) + INTERVAL '3' day) AS start_time -- Thursday 00:00:00 UTC
+    CASE
+    WHEN CURRENT_TIMESTAMP < (DATE_TRUNC('week', CURRENT_TIMESTAMP) + INTERVAL '3' day)
+    THEN DATE_TRUNC('day', DATE_TRUNC('week', CURRENT_TIMESTAMP) + INTERVAL '3' day - INTERVAL '7' day)
+    ELSE DATE_TRUNC('day', DATE_TRUNC('week', CURRENT_TIMESTAMP) + INTERVAL '3' day)
+  END AS start_time -- Thursday 00:00:00 UTC
 ),
 tasks AS (
   -- Fetch tasks submitted since last Thursday
@@ -20,24 +25,19 @@ payouts AS (
   -- Aggregate validator rewards and fees only for transactions with a SolutionClaimed event for the task
   SELECT
     p.task_id,
-    p.tx_hash AS payout_tx_hash,
     SUM(CASE WHEN p.event_type = 'RewardsPaid' THEN p.validator_reward ELSE 0 END) AS validator_rewards,
     SUM(CASE WHEN p.event_type = 'FeesPaid' THEN p.validator_fee ELSE 0 END) AS validator_fees
   FROM query_5179596 p
-  JOIN (
-    SELECT tx_hash, task_id
-    FROM query_5179596
-    WHERE event_type = 'SolutionClaimed'
-  ) sc ON p.tx_hash = sc.tx_hash AND p.task_id = sc.task_id
   WHERE p.task_id IS NOT NULL
-  GROUP BY p.task_id, p.tx_hash
+  GROUP BY p.task_id
+  HAVING SUM(CASE WHEN p.event_type = 'FeesPaid' THEN p.validator_fee ELSE 0 END) > 0
+        OR SUM(CASE WHEN p.event_type = 'RewardsPaid' THEN p.validator_reward ELSE 0 END) > 0
 ),
 task_summary AS (
   -- Combine tasks with filtered payouts and calculate total payout
   SELECT
     t.task_id,
     t.task_tx_hash,
-    p.payout_tx_hash,
     t.task_block_number,
     t.evt_tx_index,
     t.evt_index,
@@ -63,7 +63,6 @@ ranked_tasks AS (
 SELECT
   task_id,
   task_tx_hash,
-  payout_tx_hash,
   task_block_number,
   COALESCE(model_name, to_hex(model_id), 'No Task') AS model,
   CAST(CAST(task_fee AS DECIMAL(38,0)) AS DECIMAL(38,18)) / POWER(10, 18) AS task_fee_aius,
